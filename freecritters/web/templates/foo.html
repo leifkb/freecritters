@@ -1,0 +1,11 @@
+{% if names %}
+<ul>
+{% for name in names %}
+    <li>Hello, {{ name|e }}!</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No names.</p>
+{% endif %}
+
+<p>Foo: {{ foo|e }}</p>
