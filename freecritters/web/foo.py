@@ -3,9 +3,9 @@
 from colubrid import HttpResponse
 from freecritters.web.templates import render
 from freecritters import model
-from freecritters.form import Form, TextField, IntegerModifier, \
-                              RangeValidator, SubmitButton, CheckBox, \
-                              SelectMenu, PasswordField, SameAsValidator
+from freecritters.web.form import Form, TextField, IntegerModifier, \
+                                  RangeValidator, SubmitButton, CheckBox, \
+                                  SelectMenu, PasswordField, SameAsValidator
 import time
 
 class FooForm(Form):

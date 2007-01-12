@@ -21,7 +21,7 @@ class Configuration(object):
     @classmethod
     def read_dictionary(cls, dictionary):
         db_url = dictionary['db url']
-        db_echo = dictionary['db echo']
+        db_echo = dictionary.get('db echo', False)
         site_name = dictionary['site name'].decode('utf8')
         http_hostname = dictionary.get('http hostname', 'localhost')
         http_port = dictionary.get('http port', 8080)

@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from colubrid import RegexApplication, HttpResponse, Request
+from colubrid.server import StaticExports
 from colubrid.exceptions import HttpException
 from sqlalchemy import create_session
+import os
 
 class FreeCrittersRequest(Request):
     def __init__(self, environ, start_response, charset='utf-8'):
@@ -38,5 +40,8 @@ class FreeCrittersApplication(RegexApplication):
         finally:
             self.request.sess.close()
         return response
-                                                      
-app = FreeCrittersApplication
+
+        
+app = StaticExports(FreeCrittersApplication, { # Switch to the proper egg way!
+    '/static': os.path.join(os.path.dirname(__file__), 'static')
+})

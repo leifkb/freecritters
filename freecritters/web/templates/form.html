@@ -38,21 +38,21 @@
 {% prepare "render_form" accepting form
 %}<form action="{{ form.action|e }}" method="{{ form.method|e }}">
 {% if form.has_errors
-%}<p class="formhaserrors"><strong>Your form has errors.</strong></p>{%
+%}<p class="formhaserrors"><strong>Your form submission has errors. Please review and correct them.</strong></p>{%
 endif %}
-<dl class="formfields">
-{% for field in form.fields %}{% 
+<div class="formfields">
+{% for field in form.fields %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}formfield">{% 
     if not field.type equals "SubmitButton" %}{%
     if not field.type equals "HiddenField"
-    %}<dt class="formfieldtitle">{{ field.title|e }}:</dt>{%
+    %}<div class="formfieldtitle">{{ field.title|e }}:</div>{%
     endif %}
 {%  endif
-    %}<dd class="formfieldcontrol">{% call "render_field" field %}</dd>
+    %}<div class="formfieldcontrol">{% call "render_field" field %}</div>
 {%    if not field.error equals None %}
-    <dd class="formfielderror"><em>{{ field.error|e }}</em></dd>{%
+    <div class="formfielderror"><em>{{ field.error|e }}</em></div>{%
     else %}{% if not field.description equals None
-    %}<dd class="formfielddesc">{{ field.description|e }}</dd>{%
-    endif %}{% endif %}
+    %}<div class="formfielddesc">{{ field.description|e }}</div>{%
+    endif %}{% endif %}</div>
 {% endfor
-%}</dl></form>{%
+%}</div></form>{%
 endprepare %}ASDFASDF

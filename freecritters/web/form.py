@@ -2,7 +2,7 @@
 
 """Relatively simple library for form validation. Made for Colubrid and Jinja.
 
-This is designed similarly to Pocoo's pocoo.utila.forms, but with fewer
+This is designed similarly to Pocoo's pocoo.utils.forms, but with fewer
 features and without a dependency on Pocoo.
 """
 
@@ -42,7 +42,7 @@ class IntegerModifier(Modifier):
     valid.
     """
     
-    def __init__(self, message=u'Must be an integer.', base=10):
+    def __init__(self, message=u'Must be a number.', base=10):
         super(IntegerModifier, self).__init__()
         self.message = message
         self.base = base
@@ -65,7 +65,7 @@ class RangeValidator(Modifier):
             if min_val is not None and max_val is not None:
                 message = u'Must be between %s and %s (inclusive).' \
                                                  % (min_val, max_val)
-            elif min_val is not None:
+            elif min_val is not None:                                                       
                 message = u'Must be at least %s.' % min_val
             elif max_val is not None:
                 message = u'Must be at most %s.' % max_val
