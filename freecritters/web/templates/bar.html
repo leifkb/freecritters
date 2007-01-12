@@ -1,7 +1,8 @@
 {% extends "layout" %}
-{% marker "title" set "Foo" %}
-
-{% block "content" %}
 {% require "form" %}
-{% call "render_form" bar %}
+{% marker "title" set "Foo" %}
+{% block "content" %}
+
+{{ data|e }}
+
 {% endblock %}

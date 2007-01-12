@@ -1,24 +1,42 @@
 # -*- coding: utf-8 -*-
 
 from colubrid import RegexApplication, HttpResponse, Request
+from colubrid.exceptions import HttpException
+from sqlalchemy import create_session
 
 class FreeCrittersRequest(Request):
     def __init__(self, environ, start_response, charset='utf-8'):
         super(FreeCrittersRequest, self).__init__(environ, start_response,
                                                   charset)
         self.config = environ['freecritters.config']
-        self.db
-    
+        self.sess = create_session(bind_to=self.config.db_engine)
+        self.trans = self.sess.create_transaction()
+        
 class FreeCrittersApplication(RegexApplication):
     charset = 'utf-8'
     urls = [
-        ('^hello$', 'freecritters.web.foo.foo'),
-        ('^hello/(.+)$', 'freecritters.web.foo.foo'),
+        ('^$', 'freecritters.web.foo.foo'),
     ]
     
     def __init__(self, environ, start_response,
                  request_class=FreeCrittersRequest):
         super(FreeCrittersApplication, self).__init__(environ, start_response,
                                                       request_class)
-        
+    
+    def process_request(self):
+        try:
+            try:
+                response = super(FreeCrittersApplication, self).process_request()
+            except HttpException:
+                self.request.trans.commit()
+                raise
+            except:
+                self.request.trans.rollback()
+                raise
+            else:
+                self.request.trans.commit()
+        finally:
+            self.request.sess.close()
+        return response
+                                                      
 app = FreeCrittersApplication
