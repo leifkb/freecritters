@@ -102,6 +102,9 @@ a {
     padding-left: 0.5em;
     border-bottom: 1px solid #CCC;
 }
+.formfield.hidden {
+    display: none;
+}
 .formfield.last {
     border-bottom: 0 none;
 }

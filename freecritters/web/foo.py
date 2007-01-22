@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from colubrid import HttpResponse
 from freecritters.web.templates import render
 from freecritters import model
 from freecritters.web.form import Form, TextField, IntegerModifier, \

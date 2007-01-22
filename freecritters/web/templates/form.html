@@ -41,10 +41,10 @@
 %}<p class="formhaserrors"><strong>Your form submission has errors. Please review and correct them.</strong></p>{%
 endif %}
 <div class="formfields">
-{% for field in form.fields %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}formfield">{% 
+{% for field in form.fields %}{% if not field.type equals "HiddenField" %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}formfield">{% endif %}{% if field.type equals "HiddenField" %}{% if not field.error equals None %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}formfield">{% else %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}hidden formfield">{% endif %}{% endif %}{% 
     if not field.type equals "SubmitButton" %}{%
     if not field.type equals "HiddenField"
-    %}<div class="formfieldtitle">{{ field.title|e }}:</div>{%
+    %}<div class="formfieldtitle"><label for="{{ field.id }}">{{ field.title|e }}:</label></div>{%
     endif %}
 {%  endif
     %}<div class="formfieldcontrol">{% call "render_field" field %}</div>
@@ -55,4 +55,4 @@ endif %}
     endif %}{% endif %}</div>
 {% endfor
 %}</div></form>{%
-endprepare %}ASDFASDF
+endprepare %}

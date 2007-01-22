@@ -37,6 +37,13 @@ class Modifier(object):
         
         return value
     
+    def dependencies(self, form):
+        """Returns a set of fields that fields modified by this modifier
+        depend on. Dependencies must be modified before their dependents.
+        """
+        
+        return set()
+    
 class IntegerModifier(Modifier):
     """Turns a string value into an integer, or causes an error if it's not
     valid.
@@ -83,7 +90,7 @@ class LengthValidator(Modifier):
     def __init__(self, min_len=None, max_len=None, message=None):
         super(LengthValidator, self).__init__()
         self.min_len = min_len
-        self.max_len = maxlen
+        self.max_len = max_len
         if message is None:
             if min_len is not None and max_len is not None:
                 message = u'Must be %s-%s (inclusive) characters.' \
@@ -91,14 +98,14 @@ class LengthValidator(Modifier):
             elif max_len is not None:
                 message = u'Must be at most %s characters long' % max_len
             elif min_len is not None:
-                message = u'Most be at least %s characters long.' % min_len
+                message = u'Must be at least %s characters long.' % min_len
             else:
                 message = u'The aliens are coming! THE ALIENS ARE COMING!'
         self.message = message
         
     def modify(self, value, form):
         if (self.min_len is not None and len(value) < self.min_len) \
-        or (self.max_len is not None and len(value) > self.max_val):
+        or (self.max_len is not None and len(value) > self.max_len):
             raise ValidationError(self.message)
         return value
 
@@ -125,16 +132,18 @@ class RegexValidator(Modifier):
         if isinstance(regex, basestring):
             regex = re.compile(regex)
         self.regex = regex
+        self.message = message
     
     def modify(self, value, form):
         if self.regex.search(value) is None:
             raise ValidationError(self.message)
+        return value
         
 class FormField(object):
     """Base class for form fields."""
     
-    def __init__(self, name, title, description=u'', id_=None, modifiers=None,
-                 must_be_present=True):
+    def __init__(self, name, title=u'', description=u'', id_=None,
+                 modifiers=None, must_be_present=True):
         if modifiers is None:
             modifiers = []
         if id_ is None:
@@ -146,7 +155,7 @@ class FormField(object):
         self.name = name
         self.modifiers = modifiers
         self.must_be_present = must_be_present
-        
+
     def value_from_raw(self, values):
         """Takes a list (like what req.form.getlist(name) would return) of
         values in the request with the same name as this field and returns the
@@ -194,11 +203,19 @@ class FormField(object):
             result['has_value'] = True
             result['value'] = form.values[self.id_]
         return result
-
+    
+    def dependencies(self, form):
+        """Returns a set of fields that this field depends on."""
+        
+        result = set()
+        for modifier in self.modifiers:
+            result.update(modifier.dependencies(form))
+        return result
+        
 class TextField(FormField):
     """Text fields (<input type="text">)."""
     
-    def __init__(self, name, title, description=u'', max_length=None,
+    def __init__(self, name, title=u'', description=u'', max_length=None,
                  size=None, id_=None, modifiers=None, must_be_present=True):
         if modifiers is None:
             modifiers = []
@@ -221,7 +238,7 @@ class PasswordField(TextField):
 class CheckBox(FormField):
     """Check boxes (<input type="checkbox")."""
     
-    def __init__(self, name, title, description=u'', value=u'-', id_=None, 
+    def __init__(self, name, title=u'', description=u'', value=u'-', id_=None, 
                  modifiers=None, must_be_present=True):
         super(CheckBox, self).__init__(name, title, description, id_,
                                        modifiers, must_be_present)
@@ -238,7 +255,7 @@ class CheckBox(FormField):
 class TextArea(FormField):
     """Text areas (<textarea></textarea>)."""
     
-    def __init__(self, name, title, description=u'', rows=12, cols=50,
+    def __init__(self, name, title=u'', description=u'', rows=12, cols=50,
                  id_=None, modifiers=None, must_be_present=True):
         super(TextArea, self).__init__(name, title, description, id_,
                                        modifiers, must_be_present)
@@ -253,8 +270,8 @@ class TextArea(FormField):
 class SelectMenu(FormField):
     """Select menus (<select>...</select>)."""
     
-    def __init__(self, name, title, description=u'', options=None, id_=None,
-                 modifiers=None, must_be_present=True):
+    def __init__(self, name, title=u'', description=u'', options=None,
+                 id_=None, modifiers=None, must_be_present=True):
         super(SelectMenu, self).__init__(name, title, description, id_,
                                          modifiers, must_be_present)
         self.options = options
@@ -284,7 +301,7 @@ class SubmitButton(FormField):
     """Submit buttons (<input type="submit">). Note that name can be None,
     but id must be specified explicitly in that case.
     
-    Title is used as the button's value. (Blame IE's for that.)
+    Title is used as the button's value. (Blame IE for that.)
     """
     
     def __init__(self, name=None, title=u'', description=u'', id_=None,
@@ -352,6 +369,7 @@ class Form(object):
                 data = req.args
             else:
                 data = req.form
+        self.req = req
         self.defaults = defaults
         self.values = {}
         self.modified_values = {}
@@ -376,13 +394,28 @@ class Form(object):
                     pass
             except ValidationError, e:
                 self.errors[field.id_] = e.message
-        for field in fields_to_modify:
-            value = self.values[field.id_]
+                
+        modified_fields = set()
+        def modify_field(field):
+            if field in modified_fields:
+                return
+            for dependency in field.dependencies(self):
+                if dependency not in modified_fields:
+                    modify_field(dependency)
+                if dependency.id_ not in self.modified_values:
+                    return
+            try:
+                value = self.values[field.id_]
+            except KeyError:
+                return
             try:
                 modified_value = field.modify_value(value, self)
+                self.modified_values[field.id_] = modified_value
+                modified_fields.add(field)
             except ValidationError, e:
                 self.errors[field.id_] = e.message
-            self.modified_values[field.id_] = modified_value
+        for field in fields_to_modify:
+            modify_field(field)
             
     def values_dict(self):
         """Returns the values of fields in the form which have values (either

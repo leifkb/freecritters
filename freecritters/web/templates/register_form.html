@@ -1,7 +1,6 @@
 {% extends "layout" %}
-{% marker "title" set "Foo" %}
-
+{% marker "title" set "Register" %}
 {% block "content" %}
 {% require "form" %}
-{% call "render_form" bar %}
+{% call "render_form" form %}
 {% endblock %}

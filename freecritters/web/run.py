@@ -23,7 +23,7 @@ def load_config():
         
 def run_dev():
     from freecritters.web import templates
-    templates.cache = False
+    templates.factory.use_cache = False
     
     config = load_config()
     environ = {'freecritters.config': config}

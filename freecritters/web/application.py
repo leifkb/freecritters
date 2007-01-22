@@ -2,9 +2,11 @@
 
 from colubrid import RegexApplication, HttpResponse, Request
 from colubrid.server import StaticExports
-from colubrid.exceptions import HttpException
+from colubrid.exceptions import HttpException, AccessDenied
 from sqlalchemy import create_session
 import os
+from freecritters import model
+from freecritters.web import templates
 
 class FreeCrittersRequest(Request):
     def __init__(self, environ, start_response, charset='utf-8'):
@@ -13,11 +15,27 @@ class FreeCrittersRequest(Request):
         self.config = environ['freecritters.config']
         self.sess = create_session(bind_to=self.config.db_engine)
         self.trans = self.sess.create_transaction()
+        self._find_login()
+    
+    def _find_login(self):
+        self.login = None
+        if 'login_id' in self.cookies and 'login_code' in self.cookies:
+            try:
+                login_id = int(self.cookies['login_id'].value)
+            except ValueError:
+                return
+            login = self.sess.query(model.Login).get(login_id)
+            if login.code == self.cookies['login_code'].value.decode('ascii'):
+                self.login = login
         
 class FreeCrittersApplication(RegexApplication):
     charset = 'utf-8'
     urls = [
-        ('^$', 'freecritters.web.foo.foo'),
+        ('^$', 'freecritters.web.home.home'),
+        ('^register$', 'freecritters.web.register.register'),
+        ('^login$', 'freecritters.web.login.login'),
+        ('^logout$', 'freecritters.web.logout.logout'),
+        ('^users/(.+)$', 'freecritters.web.profile.profile')
     ]
     
     def __init__(self, environ, start_response,
@@ -25,22 +43,27 @@ class FreeCrittersApplication(RegexApplication):
         super(FreeCrittersApplication, self).__init__(environ, start_response,
                                                       request_class)
     
-    def process_request(self):
+    def __iter__(self):
+        # We're doing this here instead of in process_request because
+        # process_http_exception wants an open session too.
         try:
             try:
-                response = super(FreeCrittersApplication, self).process_request()
-            except HttpException:
-                self.request.trans.commit()
-                raise
+                response = super(FreeCrittersApplication, self).__iter__()
             except:
                 self.request.trans.rollback()
                 raise
             else:
                 self.request.trans.commit()
+            return response
         finally:
             self.request.sess.close()
-        return response
-
+    
+    def process_http_exception(self, e):
+        if isinstance(e, AccessDenied):
+            return templates.factory.render('access_denied', self.request)
+        else:
+            return super(FreeCrittersApplication, self) \
+                               .process_http_exception(e)
         
 app = StaticExports(FreeCrittersApplication, { # Switch to the proper egg way!
     '/static': os.path.join(os.path.dirname(__file__), 'static')

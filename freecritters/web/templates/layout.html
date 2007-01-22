@@ -1,26 +1,31 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html lang="en">
     <head>
-        <title>{% marker "title" %} on {{ fc.config.site_name|e }}</title>
+        <title>{% marker "title" %} on {{ fc.site_name|e }}</title>
         <link rel="stylesheet" media="screen,projection" type="text/css"
               href="/static/style.css">
     </head>
     <body>
         <div id="header">
-            <h1>{{ fc.config.site_name|e }}</h1>
+            <h1><img src="/static/logo.png" alt="{{ fc.site_name|e }}"></h1>
 
             <div id="logininfo">
-                <div>Logged in as <a href="#">eurleif</a>, &curren;100&nbsp;000</div>
-                <div><a href="#">Log out</a>, <a href="#">Preferences</a></div>
+                {% if fc.username equals None %}
+                <div>Not logged in.</div>
+                <div><a href="/login">Log in</a> or <a href="/register">Register</a></div>
+                {% else %}
+                <div>Logged in as <a href="{{ fc.user_link|e }}">{{ fc.username|e }}</a>, &curren;{{ fc.money|intformat|e }}</div>
+                <div><a href="/logout">Log out</a>, <a href="/preferences">preferences</a></div>
+                {% endif %}
             </div>
 
             <div class="clearhack">&nbsp;</div>
         </div>
         <ul id="nav">
-            <li><a href="#">Home</a></li>
-            <li><a href="#">Foo</a></li>
-            <li><a href="#">Bar</a></li>
-            <li><a href="#">Baz</a></li>
+            <li><a href="/">Home</a></li>
+            <li><a href="#">&amp; Other</a></li>
+            <li><a href="#">Important</a></li>
+            <li><a href="#">Stuff</a></li>
         </ul>
         <div id="main">
             <h2 id="contenttitle">{% marker "title" %}</h2>
