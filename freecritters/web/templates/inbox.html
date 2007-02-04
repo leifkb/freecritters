@@ -1,0 +1,35 @@
+{% extends "layout" %}
+{% marker "title" set "Inbox" %}
+{% block "content" %}
+<p>Here's your inbox. Would you like to <a href="/mail/send">send a message</a>?</p>
+{% if not conversations %}
+<p><strong>You don't have any mail.</strong></p>
+{% else %}
+<table>
+<thead>
+<tr>
+<th>Subject</th>
+<th>With</th>
+</tr>
+</thead>
+<tbody>
+{% for conversation in conversations %}
+<tr>
+<td>{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
+<td>
+{% if conversation.other_participants equals None %}
+<em>system-generated</em>
+{% else %}
+{% for participant in conversation.other_participants %}
+{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e }}">{{ participant.username|e }}</a>
+{% endfor %}
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+{% require "paginator" %}
+{% call "paginator_in_box" paginator, True %}
+{% endblock %}

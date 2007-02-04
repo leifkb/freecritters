@@ -4,6 +4,7 @@ from HTMLParser import HTMLParser
 from xml.sax.saxutils import escape, quoteattr
 from StringIO import StringIO
 from itertools import islice
+from htmlentitydefs import name2codepoint
 import re
 
 REAL, SYNTHETIC, REMOVED, NEEDS_CONTENT = xrange(4)
@@ -44,7 +45,8 @@ class Element(object):
     """Represents a type of HTML element."""
     
     def __init__(self, attrs=None, can_contain=None, can_create=None,
-                 self_closing=False, empty=False, must_have_content=False):
+                 self_closing=False, empty=False, must_have_content=False,
+                 blocks_auto_line_breaks=False):
         if attrs is None:
             attrs = {}
         if can_contain is None:
@@ -57,6 +59,7 @@ class Element(object):
         self.self_closing = self_closing
         self.empty = empty
         self.must_have_content = must_have_content
+        self.blocks_auto_line_breaks = blocks_auto_line_breaks
         
     def start_tag(self, name, attrs):
         attr_text = []
@@ -94,7 +97,7 @@ class Element(object):
         return new_attrs
             
 class HtmlSanitizer(HTMLParser):
-    """Sanitizes HTML. This class is subclassed to define rulesets."""
+    """Sanitizes HTML."""
     
     def __init__(self, profile):
         HTMLParser.__init__(self)
@@ -220,13 +223,23 @@ class HtmlSanitizer(HTMLParser):
             self._content_encountered()
         self._data.append(data)
     
+    def _auto_line_breaks_allowed(self):
+        for index, can_contain, item_type in self._containers():
+            if index == -1:
+                break
+            name = self.stack[index][1]
+            if self.profile.elements[name].blocks_auto_line_breaks:
+                return False
+        return True
+        
     def _process_data(self):
         if not self._data:
             return
         data = u''.join(self._data)
         self._data = []
-        if self.profile.line_break_element is None \
-           and self.profile.paragraph_element is None:
+        if (self.profile.line_break_element is None \
+            and self.profile.paragraph_element is None) \
+           or not self._auto_line_breaks_allowed() :
             if data.isspace() or self._make_containable(None):
                 if not data.isspace():
                     # Technically, this is bad since spaces will end up 
@@ -237,23 +250,77 @@ class HtmlSanitizer(HTMLParser):
         else:
             for text in self._line_break_re.findall(data):
                 if self.profile.paragraph_element is not None \
-                    and text[0] in (u'\r', u'\n') \
+                    and text[0] in u'\r\n' \
                     and text not in (u'\r', u'\n', u'\r\n'):
                     self.handle_endtag(self.profile.paragraph_element, True)
+                    self.result.write(escape(text))
                 elif self.profile.line_break_element is not None \
-                     and text[0] in (u'\r', u'\n'):
+                     and text[0] in u'\r\n':
                     self.handle_starttag(self.profile.line_break_element, [],
                                          True)
+                    self.result.write(escape(text))
                 else:
                     if text.isspace() or self._make_containable(None):
                         if not text.isspace():
                             self._content_encountered()
                         self.result.write(escape(text))
             
+    def handle_charref(self, name):
+        self._process_data()
+        self._content_encountered()
+        if name[0] in u'xX':
+            name = name[1:]
+            base = 16
+        else:
+            base = 10
+        try:
+            n = int(name, base)
+        except ValueError:
+            return
+        if name > 0 and self._make_containable(None):
+            self.result.write('&#%s;' % name)
+    
+    def handle_entityref(self, name):
+        self._process_data()
+        self._content_encountered()
+        if name in name2codepoint and self._make_containable(None):
+            self.result.write(u'&%s;' % name)
+                        
     def close(self):
         HTMLParser.close(self)
         self._process_data()
         self._pop_stack_down_to(0)
+        
+    def _replace_entity(self, m):
+        """Part of Aaron Swartz's patch to HTMLParser."""
+        
+        s = m.group(1)
+        if s[0] == u'#':
+            s = s[1:]
+            try:
+                if s[0] in u'xX':
+                    c = int(s[1:], 16)
+                else:
+                    c = int(s)
+                return unichr(c)
+            except ValueError:
+                return m.group(0)
+        else:
+            try:
+                return unichr(name2codepoint[s])
+            except (ValueError, KeyError):
+                return m.group(0)
+    
+    _entity_re = re.compile(r"&(#?[xX]?(?:[0-9a-fA-F]+|\w{1,8}));")
+    def unescape(self, s):
+        # The current implementation of unescape (used for attribute
+        # values) doesn't know about most entities, and knows nothing
+        # about character references. Aaron Swartz proposed a patch to
+        # fix this problem, but it hasn't been adopted yet. This
+        # function is a slightly modified version of that patch.
+        
+        return self._entity_re.sub(self._replace_entity, s)
+
 
 class SanitizerProfile(object):
     elements = {}
@@ -280,7 +347,9 @@ _whitespace_re = re.compile(u'\s+')
             
 class NoScriptUrlAttribute(Attribute):
     def validate(self, value):
-        value = _whitespace_re.sub(u'', value)
+        print value
+        value = _whitespace_re.sub(u'', value).lower()
+        print value
         return not (value.startswith(u'javascript:') 
                  or value.startswith(u'vbscript:'))
 
@@ -300,7 +369,10 @@ class ReplacedElement(Element):
     def end_tag(self, name, attrs):
         return super(ReplacedElement, self).end_tag(self.replace_with, attrs)
     
-class TestProfile(SanitizerProfile):
+class StandardProfile(SanitizerProfile):
+    _inline = set((None, u'br', u'img', u'a', u'em', u'strong', u'i', u'b',
+                   u'cite', u'dfn', u'code', u'samp', u'kbd', u'var', u'abbr',
+                   u'acronym', u'sup', u'sub'))
     elements = {
         u'p': Element({u'title': Attribute()},
                       set((None, u'br', u'img', u'a', u'em', u'strong', u'i',
@@ -315,53 +387,58 @@ class TestProfile(SanitizerProfile):
         u'br': Element({u'title': Attribute()}, empty=True),
         u'blockquote': Element({u'title': Attribute()},
                                set((u'p', u'ul', u'ol', u'img', u'blockquote',
-                                    u'h1', u'h2', u'h3', u'h4', u'h5', u'h6')),
+                                    u'h1', u'h2', u'h3', u'h4', u'h5', u'h6',
+                                    u'pre')),
                                must_have_content=True),
         u'img': Element({u'src': NoScriptUrlAttribute(True),
                          u'alt': Attribute(True, [u'']),
                          u'title': Attribute()},
                          [(u'li', [])], empty=True),
-        u'a': Element({u'href': Attribute(True), u'title': Attribute()},
-                      set((u'strong', u'em', None)),
+        u'a': Element({u'href': NoScriptUrlAttribute(True),
+                       u'title': Attribute()},
+                      _inline - set((u'a', )),
                       [(u'p', []), (u'li', [])], must_have_content=True),
-        u'em': Element({u'title': Attribute()}, set((None, u'strong', u'a')),
-                       [(u'p', []), (u'li', [])], must_have_content=True),
-        u'strong': Element({u'title': Attribute()}, set((None, u'em', u'a')),
-                           [(u'p', []), (u'li', [])], must_have_content=True),
         u'i': ReplacedElement(u'em', {u'title': Attribute()},
-                              set((None, u'strong', u'b', u'a')),
+                              _inline,
                               [(u'p', []), (u'li', [])],
                               must_have_content=True),
         u'b': ReplacedElement(u'strong', {u'title': Attribute()},
-                              set((None, u'em', u'i', u'a')),
+                              _inline,
                               [(u'p', []), (u'li', [])],
                               must_have_content=True),
-        u'h1': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h1': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h2': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h2': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h3': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h3': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h4': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h4': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h5': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h5': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h6': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h6': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
+        u'pre': Element({u'title': Attribute()}, _inline,
+                        must_have_content=True, blocks_auto_line_breaks=True)
     }
+    for _name in [u'cite', u'dfn', u'code', u'samp', u'kbd', u'var', u'abbr',
+                  u'acronym', u'sub', u'sup', u'em', u'strong']:
+        elements[_name] = \
+            Element({u'title': Attribute()}, _inline, 
+                    [(u'p', []), (u'li', [])],
+                    must_have_content=True)
     root_can_contain = set((u'p', u'ul', u'ol', u'img', u'blockquote',
-                            u'h1', u'h2', u'h3', u'h4', u'h5', u'h6'))
+                            u'h1', u'h2', u'h3', u'h4', u'h5', u'h6', u'pre'))
+    del _inline, _name
     text_can_create = [(u'p', []), (u'li', [])]
     line_break_element = u'br'
     paragraph_element = u'p'
     
-class TestProfile2(SanitizerProfile):
+class StandardProfile2(SanitizerProfile):
+    _inline = set((None, u'br', u'img', u'a', u'em', u'strong', u'i', u'b',
+                   u'code', u'cite', u'ins', u'del', u'kbd', u'dfn', u'code',
+                   u'samp', u'kbd', u'var', u'abbr', u'acronym', u'sup',
+                   u'sub'))
     elements = {
         u'p': Element({u'title': Attribute()},
                       set((None, u'br', u'img', u'a', u'em', u'strong')),
@@ -370,61 +447,54 @@ class TestProfile2(SanitizerProfile):
                        must_have_content=True),
         u'ol': Element({u'title': Attribute()}, set((u'li',)),
                        must_have_content=True),
-        u'li': Element({u'title': Attribute()},
-                       set((None, u'ol', u'ul', u'p', u'blockquote', u'em',
-                            u'a', u'strong', u'i', u'b')),
+        u'li': Element({u'title': Attribute()}, _inline,
                        [(u'ul', [])], True, must_have_content=True),
         u'br': Element({u'title': Attribute()}, empty=True),
         u'blockquote': Element({u'title': Attribute()},
-                               set((None, u'p', u'ul', u'ol', u'img',
-                                    u'blockquote',
+                               set((u'p', u'ul', u'ol', u'blockquote',
                                     u'h1', u'h2', u'h3', u'h4', u'h5', u'h6',
-                                    u'a', u'em', u'strong', u'br', u'i',
-                                    u'b')),
+                                    u'pre')),
                                must_have_content=True),
         u'img': Element({u'src': NoScriptUrlAttribute(True),
                          u'alt': Attribute(True, [u'']),
                          u'title': Attribute()},
                          [(u'li', [])], empty=True),
-        u'a': Element({u'href': Attribute(True), u'title': Attribute()},
-                      set((None, u'strong', u'em')),
+        u'a': Element({u'href': NoScriptUrlAttribute(True),
+                       u'title': Attribute()},
+                      _inline - set((u'a', )),
                       [(u'p', []), (u'li', [])], must_have_content=True),
-        u'em': Element({u'title': Attribute()},
-                       set((None, u'strong', u'b', u'a')),
-                       [(u'p', []), (u'li', [])], must_have_content=True),
-        u'strong': Element({u'title': Attribute()},
-                           set((None, u'em', u'i', u'a')),
-                           [(u'p', []), (u'li', [])], must_have_content=True),
         u'i': ReplacedElement(u'em', {u'title': Attribute()},
-                              set((None, u'strong', u'b', u'a')),
+                              _inline,
                               [(u'p', []), (u'li', [])],
                               must_have_content=True),
         u'b': ReplacedElement(u'strong', {u'title': Attribute()},
-                              set((None, u'em', u'i', u'a')),
+                              _inline,
                               [(u'p', []), (u'li', [])],
                               must_have_content=True),
-        u'h1': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h1': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h2': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h2': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h3': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h3': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h4': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h4': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h5': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h5': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
-        u'h6': Element({u'title': Attribute()}, set((None, u'br', u'em', u'a',
-                                                     u'strong', u'img')),
+        u'h6': Element({u'title': Attribute()}, _inline,
                        must_have_content=True),
+        u'pre': Element({u'title': Attribute()}, _inline,
+                        must_have_content=True, blocks_auto_line_breaks=True)
     }
-    root_can_contain = set((None, u'p', u'ul', u'ol', u'img', u'blockquote',
+    for _name in [u'cite', u'dfn', u'code', u'samp', u'kbd', u'var', u'abbr',
+                  u'acronym', u'sup', u'sub', u'em', u'strong']:
+        elements[_name] = \
+            Element({u'title': Attribute()}, _inline - set((_name, )),
+                    must_have_content=True)
+    root_can_contain = set((None, u'p', u'ul', u'ol', u'blockquote',
                             u'h1', u'h2', u'h3', u'h4', u'h5', u'h6',
-                            u'a', u'em', u'strong', u'br', u'i', u'b'))
+                            u'pre')) | _inline
+    del _inline, _name
     text_can_create = [(u'p', []), (u'li', [])]
     
 def sanitize_html(html, profile):

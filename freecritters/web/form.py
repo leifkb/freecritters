@@ -155,7 +155,8 @@ class FormField(object):
         self.name = name
         self.modifiers = modifiers
         self.must_be_present = must_be_present
-
+        self.keep_failed_values = True
+        
     def value_from_raw(self, values):
         """Takes a list (like what req.form.getlist(name) would return) of
         values in the request with the same name as this field and returns the
@@ -255,7 +256,7 @@ class CheckBox(FormField):
 class TextArea(FormField):
     """Text areas (<textarea></textarea>)."""
     
-    def __init__(self, name, title=u'', description=u'', rows=12, cols=50,
+    def __init__(self, name, title=u'', description=u'', rows=12, cols=42,
                  id_=None, modifiers=None, must_be_present=True):
         super(TextArea, self).__init__(name, title, description, id_,
                                        modifiers, must_be_present)
@@ -266,6 +267,7 @@ class TextArea(FormField):
         result = super(TextArea, self).template_context(form)
         result['rows'] = self.rows
         result['cols'] = self.cols
+        return result
 
 class SelectMenu(FormField):
     """Select menus (<select>...</select>)."""
@@ -282,7 +284,7 @@ class SelectMenu(FormField):
             if option_value == value:
                 return value
         else:
-            # If the user gives a non-existant value, we silently act like
+            # If the user gives a non-existent value, we silently act like
             # the field wasn't filled in at all. Is this the right solution?
             raise FieldNotFilled()
     
@@ -296,6 +298,12 @@ class SelectMenu(FormField):
 
 class HiddenField(FormField):
     """Hidden fields (<input type="hidden">)."""
+    
+    def __init__(self, name, title=u'', description=u'', id_=None,
+                 modifiers=None, must_be_present=True):
+        super(HiddenField, self).__init__(name, title, description, id_,
+                                          modifiers, must_be_present)
+        self.keep_failed_values = False
     
 class SubmitButton(FormField):
     """Submit buttons (<input type="submit">). Note that name can be None,
@@ -392,8 +400,6 @@ class Form(object):
                     self.modified_values[field.id_] = modified_value
                 except KeyError:
                     pass
-            except ValidationError, e:
-                self.errors[field.id_] = e.message
                 
         modified_fields = set()
         def modify_field(field):
@@ -414,6 +420,14 @@ class Form(object):
                 modified_fields.add(field)
             except ValidationError, e:
                 self.errors[field.id_] = e.message
+                if not field.keep_failed_values:
+                    try:
+                        modified_value = defaults[field.id_]
+                        value = field.unmodify_value(modified_value, self)
+                        self.values[field.id_] = value
+                    except KeyError:
+                        pass
+                        
         for field in fields_to_modify:
             modify_field(field)
             

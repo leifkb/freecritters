@@ -5,6 +5,7 @@ from jinja import Template, Context, EggLoader
 from jinja.exceptions import TemplateDoesNotExist
 from jinja.lib import stdlib
 from freecritters.web import links
+from datetime import datetime
 
 class TemplateFactory(object):
     def __init__(self, loader, use_cache=True, lib=stdlib):
@@ -40,13 +41,17 @@ class TemplateFactory(object):
             username = None
             money = None
             user_link = None
+            new_mail = False
         else:
             username = req.login.user.username
             money = req.login.user.money
             user_link = links.user_link(req.login.user)
+            new_mail = req.login.user.has_new_mail()
+            
         return {u'fc': {u'site_name': req.config.site_name,
                         u'username': username, u'money': money,
-                        u'user_link': user_link}}
+                        u'user_link': user_link,
+                        u'new_mail': new_mail}}
     
     def render(self, template, req, context=None):
         '''Renders a template into an HttpResponse. template can be either a
@@ -73,9 +78,13 @@ def handle_intformat(n, context):
         groups.append(n[i:i+3])
     return u'\N{NO-BREAK SPACE}'.join(groups)
 
+def handle_datetime(t, context, sep=u'\N{NO-BREAK SPACE}'):
+    t = datetime(t.year, t.month, t.day, t.hour, t.minute, t.second)
+    return t.isoformat('T').decode('ascii').replace('T', sep)
 
 fclib = stdlib.clone()
 fclib.register_filter('intformat', handle_intformat)
+fclib.register_filter('datetime', handle_datetime)
 loader = EggLoader('freecritters', 'web/templates',
                    charset='utf-8')
 factory = TemplateFactory(loader, lib=fclib)

@@ -5,6 +5,7 @@
 from datetime import datetime, timedelta
 from freecritters.web.form import Modifier, ValidationError
 from freecritters.model import User, Subaccount, FormToken
+from freecritters.textformats import formatted_text_to_html
 
 class UsernameNotTakenValidator(Modifier):
     """Validates that a username isn't taken."""
@@ -90,6 +91,34 @@ class FormTokenValidator(Modifier):
         login = req.login
         form_token = FormToken.find_form_token(sess, value, login.user,
                                                login.subaccount)
-        print '--XXX--', form_token
         if form_token is None:
             raise ValidationError(self.message)
+            
+class TextFormatModifier(Modifier):
+    def __init__(self, format_field, message=
+                 u"Couldn't parse your text: %s"):
+        self.format_field = format_field
+        self.message = message
+    
+    def modify(self, value, form):
+        format = form.modified_values[self.format_field]
+        try:
+            rendered_value = formatted_text_to_html(value, format)
+        except ValueError, e:
+            raise ValidationError(self.message % e.message)
+        return value, rendered_value
+        
+    def unmodify(self, value, form):
+        return value[0]
+        
+    def dependencies(self, form):
+        return set((form.fields_by_id[self.format_field],))
+        
+class NotMeValidator(Modifier):
+    def __init__(self, message=u'Must not be you.'):
+        self.message = message
+        
+    def modify(self, value, form):
+        if form.req.login is not None and form.req.login.user == value:
+            raise ValidationError(self.message)
+        return value

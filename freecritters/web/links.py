@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
 def user_link(user):
-    print '--XXX--', user.unformatted_username
-    return '/users/%s' % user.unformatted_username.encode('ascii')
+    return u'/users/%s' % user.unformatted_username.encode('ascii')
+    
+def conversation_link(conversation):
+    return u'/mail/%s' % conversation.conversation_id

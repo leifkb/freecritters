@@ -25,6 +25,8 @@ class FreeCrittersRequest(Request):
             except ValueError:
                 return
             login = self.sess.query(model.Login).get(login_id)
+            if login is None:
+                return
             if login.code == self.cookies['login_code'].value.decode('ascii'):
                 self.login = login
         
@@ -35,7 +37,13 @@ class FreeCrittersApplication(RegexApplication):
         ('^register$', 'freecritters.web.register.register'),
         ('^login$', 'freecritters.web.login.login'),
         ('^logout$', 'freecritters.web.logout.logout'),
-        ('^users/(.+)$', 'freecritters.web.profile.profile')
+        ('^users/(.+)$', 'freecritters.web.profile.profile'),
+        ('^editprofile$', 'freecritters.web.settings.edit_profile'),
+        ('^mail$', 'freecritters.web.mail.inbox'),
+        ('^mail/send$', 'freecritters.web.mail.send'),
+        ('^mail/(\d+)$', 'freecritters.web.mail.conversation'),
+        ('^json/pre_mail_message$',
+            'freecritters.web.mail.pre_mail_message_json')
     ]
     
     def __init__(self, environ, start_response,

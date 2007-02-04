@@ -1,0 +1,27 @@
+{% extends "layout" %}
+{% block "title" %}Mail: {{ subject|e }}{% endblock %}
+{% block "content" %}
+
+{% if system %}
+<p>This is a system-generated message.</p>
+{% else %}
+<p>Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e }}">{{ participant.username|e }}</a>{% endfor %}.</p>
+{% endif %}
+
+{% for message in messages %}
+<div class="mailmessage">
+<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|e }}">{{ message.sender.username|e }}</a></p>
+<div class="mailmessagebody">{{ message.message }}</div>
+</div>
+{% endfor %}
+
+{% if reply_form %}
+<h3 id="reply">Reply</h3>
+{% if reply_successful %}
+<p class="formsuccessful">Replied sucessfully.</p>
+{% endif %}
+{% require "form" %}
+{% call "render_form" reply_form %}
+{% endif %}
+
+{% endblock %}
