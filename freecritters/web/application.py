@@ -42,6 +42,9 @@ class FreeCrittersApplication(RegexApplication):
         ('^mail$', 'freecritters.web.mail.inbox'),
         ('^mail/send$', 'freecritters.web.mail.send'),
         ('^mail/(\d+)$', 'freecritters.web.mail.conversation'),
+        ('^mail/(\d+)/delete$', 'freecritters.web.mail.delete'),
+        ('^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
+        ('^mail/delete$', 'freecritters.web.mail.multi_delete'),
         ('^json/pre_mail_message$',
             'freecritters.web.mail.pre_mail_message_json')
     ]

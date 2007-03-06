@@ -68,6 +68,7 @@ a {
 }
 #nav a {
     display: block;
+    width: 9.75em;
     background: white;
     color: black;
     text-decoration: none;
@@ -84,6 +85,7 @@ a {
     margin: 0;
     float: left;
     width: 11em;
+    padding-left: 0.5em;
 }
 .formfieldcontrol, .formfielddesc, .formfielderror {
     display: block;
@@ -99,8 +101,9 @@ a {
 }
 .formfield {
     padding: 0.5em;
-    padding-left: 0.5em;
+    padding-left: 0;
     border-bottom: 1px solid #CCC;
+    clear: left;
 }
 .formfield.hidden {
     display: none;
@@ -133,7 +136,7 @@ td {
     border: 2px ridge #7F7F7F;
 }
 textarea {
-    width: 100%;
+    width: 99%;
 }
 .premailmessage {
     text-align: center;
@@ -154,10 +157,7 @@ textarea {
     text-align: left;
 }
 .mailmessage {
-    margin: 1em 0.5em;
-    border-bottom: 1px solid #CCC;
-    border-left: 1px solid #CCC;
-    border-right: 1px solid #CCC;
+    margin-bottom: 1.5em;
 }
 .mailmessageheader {
     background: #CCC url(/static/mailheaderbg.png) repeat-x bottom;
@@ -189,4 +189,63 @@ textarea {
 }
 .paginatorcontainer {
     margin: 1em auto;
+}
+.subjectcell {
+    padding: 0;
+}
+.subjectcell a {
+    display: block;
+    padding: 0.1em;
+}
+.subjectcell a:hover {
+    background: #EEE;
+    color: #4182ff;
+}
+.newsubjectcell a:hover {
+    background: #CCC;
+    color: #4182ff;
+}
+.newsubjectcell  {
+    background: #DDD;
+    color: black;
+}
+.paginatorform {
+    margin: 0;
+    padding: 0;
+}
+blockquote {
+    margin: 0;
+    padding: 0;
+    margin-left: 1em;
+    border-left: 3px solid #BBB;
+    padding-left: 0.5em;
+}
+blockquote blockquote {
+    margin-left: 0.25em;
+}
+li > p {
+    padding: 0;
+    margin: 0;
+    margin-top: 1em;
+}
+li > p:first-child {
+    margin-top: 0;
+}
+/* \*/
+* html #content {height: 1%;}
+/* */
+.formfieldcontrol textarea {
+    _margin-top: -1em;
+}
+.preview {
+    border: 1px solid #CCC;
+    background: #EEE;
+    padding: 0.25em;
+    margin: 0.5em 0;
+}
+.previewtitle {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    font-size: 1.25em;
 }

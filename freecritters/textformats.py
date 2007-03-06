@@ -6,15 +6,9 @@ from HTMLParser import HTMLParseError
 from xml.sax.saxutils import escape
 import re
 
-text_formats = [
-    (u'plain', u'Plain text'),
-    (u'html', u'HTML'),
-    (u'html_auto', u'HTML with automatic line breaks')
-]
-
 _line_break_re = re.compile(u'((?:\r\n|\r|\n)+|[^\r\n]+)')
 
-def plain_text(text, max_lines=None):
+def render_plain_text(text, max_lines=None):
     result = []
     open_paragraph = False
     lines = 0
@@ -41,13 +35,8 @@ def plain_text(text, max_lines=None):
         result.append(u'</p>')
     return u''.join(result)
     
-def formatted_text_to_html(text, format):
-    if format == u'plain':
-        return plain_text(text)
+def render_html(data):
     try:
-        if format == 'html':
-            return sanitize_html(text, StandardProfile2)
-        else: # html_auto
-            return sanitize_html(text, StandardProfile)
+        return sanitize_html(data, StandardProfile)
     except HTMLParseError, e:
         raise ValueError(str(e))

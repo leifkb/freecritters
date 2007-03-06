@@ -26,7 +26,7 @@ class TemplateFactory(object):
             try:
                 return self._cache[name]
             except KeyError:
-                template = Template(name, self.loader)
+                template = Template(name, self.loader, lib=self.lib)
                 self._cache[name] = template
                 return template
         else:
@@ -82,9 +82,22 @@ def handle_datetime(t, context, sep=u'\N{NO-BREAK SPACE}'):
     t = datetime(t.year, t.month, t.day, t.hour, t.minute, t.second)
     return t.isoformat('T').decode('ascii').replace('T', sep)
 
+def handle_escapequotes(text, context):
+    text = unicode(text)
+    text = text.replace(u'&', u'&amp;')
+    text = text.replace(u'<', u'&lt;')
+    text = text.replace(u'>', u'&gt;')
+    text = text.replace(u'"', u'&quot;')
+    return text
+   
+def handle_eq(text, context):
+    return handle_escapequotes(text, context)
+    
 fclib = stdlib.clone()
 fclib.register_filter('intformat', handle_intformat)
 fclib.register_filter('datetime', handle_datetime)
+fclib.register_filter('escapequotes', handle_escapequotes)
+fclib.register_filter('eq', handle_eq)
 loader = EggLoader('freecritters', 'web/templates',
                    charset='utf-8')
 factory = TemplateFactory(loader, lib=fclib)

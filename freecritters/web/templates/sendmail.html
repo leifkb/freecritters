@@ -5,10 +5,19 @@
 {% endblock %}
 {% block "content" %}
 {% require "form" %}
+
 <div id="premailmessagecontainer">
 {% if pre_mail_message %}
 <div class="premailmessage"><h3>{{ username|e }} says:</h3>{{ pre_mail_message }}</div>
 {% endif %}
 </div>
+
+{% if not preview equals None %}
+<div class="preview">
+<h3 class="previewtitle">Preview</h3>
+{{ preview }}
+</div>
+{% endif %}
+
 {% call "render_form" form %}
 {% endblock %}

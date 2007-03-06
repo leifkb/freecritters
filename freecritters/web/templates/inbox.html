@@ -5,9 +5,15 @@
 {% if not conversations %}
 <p><strong>You don't have any mail.</strong></p>
 {% else %}
+<form action="/mail/delete" method="post">
+<div>
+<input type="hidden" name="form_token" value="{{ form_token|e }}">
+<input type="hidden" name="page" value="{{ paginator.page_num|e }}">
+</div>
 <table>
 <thead>
 <tr>
+<th>Del</th>
 <th>Subject</th>
 <th>With</th>
 </tr>
@@ -15,7 +21,8 @@
 <tbody>
 {% for conversation in conversations %}
 <tr>
-<td>{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
+<td><input type="checkbox" name="del" value="{{ conversation.id|e }}"></td>
+<td class="subjectcell{% if conversation.new %} newsubjectcell{% endif %}">{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
 <td>
 {% if conversation.other_participants equals None %}
 <em>system-generated</em>
@@ -29,7 +36,9 @@
 {% endfor %}
 </tbody>
 </table>
-{% endif %}
+<p><input type="submit" value="Delete checked"></p>
+</form>
 {% require "paginator" %}
 {% call "paginator_in_box" paginator, True %}
+{% endif %}
 {% endblock %}

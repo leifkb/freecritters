@@ -1,6 +1,9 @@
 {% prepare "paginator" accepting paginator %}
-<form action="{{ paginator.url|e }}" method="get">
+<form action="{{ paginator.url|e }}" method="get" class="paginatorform">
 <div class="paginator">
+{% for arg in paginator.args %}
+<input type="hidden" name="{{ arg.0|e }}" value="{{ arg.1|e }}">
+{% endfor %}
 {% if paginator.first_page_link %}
 <a href="{{ paginator.first_page_link|e }}">first</a>
 {% endif %}

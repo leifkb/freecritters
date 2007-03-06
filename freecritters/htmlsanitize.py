@@ -374,9 +374,7 @@ class StandardProfile(SanitizerProfile):
                    u'cite', u'dfn', u'code', u'samp', u'kbd', u'var', u'abbr',
                    u'acronym', u'sup', u'sub'))
     elements = {
-        u'p': Element({u'title': Attribute()},
-                      set((None, u'br', u'img', u'a', u'em', u'strong', u'i',
-                           u'b')),
+        u'p': Element({u'title': Attribute()}, set((None,)) | _inline,
                       must_have_content=True),
         u'ul': Element({u'title': Attribute()}, set((u'li',)),
                        must_have_content=True),
@@ -430,7 +428,7 @@ class StandardProfile(SanitizerProfile):
     root_can_contain = set((u'p', u'ul', u'ol', u'img', u'blockquote',
                             u'h1', u'h2', u'h3', u'h4', u'h5', u'h6', u'pre'))
     del _inline, _name
-    text_can_create = [(u'p', []), (u'li', [])]
+    text_can_create = [(u'p', [])]
     line_break_element = u'br'
     paragraph_element = u'p'
     
@@ -441,7 +439,7 @@ class StandardProfile2(SanitizerProfile):
                    u'sub'))
     elements = {
         u'p': Element({u'title': Attribute()},
-                      set((None, u'br', u'img', u'a', u'em', u'strong')),
+                      set((None,)) | _inline,
                       must_have_content=True),
         u'ul': Element({u'title': Attribute()}, set((u'li',)),
                        must_have_content=True),

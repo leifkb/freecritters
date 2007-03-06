@@ -30,7 +30,7 @@ def run_dev():
     
     from colubrid import execute
     from freecritters.model import metadata
-    metadata.create_all()
+
     execute(EnvironAdderMiddleware(app, environ), reload=True,
             hostname=config.http_hostname, port=config.http_port)
 

@@ -10,7 +10,7 @@ import re
 from random import randint
 from struct import pack
 from datetime import datetime, timedelta
-from freecritters.textformats import plain_text
+from freecritters.textformats import render_plain_text
 try:
     import uuid
 except ImportError:
@@ -31,13 +31,12 @@ users = Table('users', metadata,
     Column('password', Binary(20), nullable=False),
     Column('salt', Binary(4), nullable=False),
     Column('profile', Unicode, nullable=False),
-    Column('profile_format', Unicode(32), nullable=False),
     Column('rendered_profile', Unicode, nullable=False),
-    Column('default_format', Unicode(32), nullable=False),
     Column('money', Integer, nullable=False),
     Column('registration_date', DateTime(timezone=False), nullable=False),
     Column('pre_mail_message', Unicode(512)),
-    Column('last_inbox_view', DateTime(timezone=False))
+    Column('last_inbox_view', DateTime(timezone=False)),
+    Column('role_id', Integer, ForeignKey('roles.role_id'), nullable=False)
 )
 
 subaccounts = Table('subaccounts', metadata,
@@ -107,13 +106,31 @@ mail_messages = Table('mail_messages', metadata,
            nullable=False),
     Column('user_id', Integer, _foreign_key('users.user_id'), nullable=False),
     Column('message', Unicode, nullable=False),
-    Column('message_format', Unicode(32), nullable=False),
     Column('rendered_message', Unicode, nullable=False),
     Column('sent', DateTime(timezone=False), nullable=False)
 )
 Index('idx_mailmessages_conversationid_sent',
       mail_messages.c.conversation_id,
       mail_messages.c.sent
+)
+
+permissions = Table('permissions', metadata,
+    Column('permission_id', Integer, primary_key=True, nullable=False),
+    Column('special', Unicode(32), unique=True, nullable=True),
+    Column('title', Unicode(128), nullable=False),
+    Column('description', Unicode, nullable=False)
+)
+
+roles = Table('roles', metadata,
+    Column('role_id', Integer, primary_key=True, nullable=False),
+    Column('name', Unicode(128), nullable=False)
+)
+
+role_permissions = Table('role_permissions', metadata,
+    Column('role_id', Integer, _foreign_key('roles.role_id'),
+           primary_key=True),
+    Column('permission_id', Integer, _foreign_key('permissions.permission_id'),
+           primary_key=True)
 )
 
 class PasswordHolder(object):
@@ -152,8 +169,6 @@ class User(PasswordHolder):
         self.registration_date = datetime.utcnow()
         self.profile = u''
         self.rendered_profile = u''
-        self.profile_format = u'html_auto'
-        self.default_format = u'html_auto'
         self.pre_mail_message = None
         self.last_inbox_view = None
         
@@ -180,7 +195,7 @@ class User(PasswordHolder):
         if self.pre_mail_message is None:
             return None
         else:
-            return plain_text(self.pre_mail_message, 3)
+            return render_plain_text(self.pre_mail_message, 3)
         
     def has_new_mail(self):
         conn = object_session(self).connection(MailParticipant)
@@ -278,18 +293,21 @@ class FormToken(object):
         return form_token
 
 class MailConversation(object):
-    max_subject_length = 64
+    max_subject_length = 45
     
     def __init__(self, subject):
         self.subject = subject
         self.creation_time = datetime.utcnow()
     
+    def find_participant(self, user):
+        return object_session(self).query(MailParticipant).selectfirst(and_(
+            mail_participants.c.conversation_id==self.conversation_id,
+            mail_participants.c.user_id==user.user_id,
+            mail_participants.c.deleted==False
+        ))
+        
     def can_be_viewed_by(self, user, subaccount):
-        for participant in self.participants:
-            if participant.deleted == False and participant.user == user:
-                return True
-        else:
-            return False
+        return self.find_participant(user) is not None
     
     def can_be_replied_to_by(self, user, subaccount):
         return self.can_be_viewed_by(user, subaccount)
@@ -303,6 +321,14 @@ class MailParticipant(object):
         self.deleted = False
         self.system = system
 
+    def delete(self):
+        self.deleted = True
+        for participant in self.conversation.participants:
+            if not participant.deleted:
+                break
+        else:
+            object_session(self).delete(self.conversation)
+        
     @classmethod
     def where_clause(cls, user, user2=None, system=None):
         result = and_(
@@ -321,12 +347,10 @@ class MailParticipant(object):
         return result
         
 class MailMessage(object):
-    def __init__(self, conversation, user, message, message_format,
-                 rendered_message):
+    def __init__(self, conversation, user, message, rendered_message):
         self.conversation = conversation
         self.user = user
         self.message = message
-        self.message_format = message_format
         self.rendered_message = rendered_message
         self.sent = datetime.utcnow()
         
