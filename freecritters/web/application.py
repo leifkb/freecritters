@@ -29,6 +29,30 @@ class FreeCrittersRequest(Request):
                 return
             if login.code == self.cookies['login_code'].value.decode('ascii'):
                 self.login = login
+    
+    def has_permission(self, permission):
+        """Checks if the user has a given permission (identified as either a
+        Permission object or a label) and returns True or False. None can also
+        be used in place of a permission to check whether there is a logged-in
+        user at all.
+        """
+        
+        if self.login is None:
+            return False
+        if permission is None:
+            return True
+        else:
+            return self.login.has_permission(permission)
+        
+    def check_permission(self, permission):
+        """Checks if the user has a given permission (identified as either a
+        Permission object or a label) and raises AccessDenied if not. None
+        can also be used in place of a permission to check whether there
+        is a logged-in user at all.
+        """
+        
+        if not self.has_permission(permission):
+            raise AccessDenied()
         
 class FreeCrittersApplication(RegexApplication):
     charset = 'utf-8'
@@ -39,10 +63,10 @@ class FreeCrittersApplication(RegexApplication):
         ('^logout$', 'freecritters.web.logout.logout'),
         ('^users/(.+)$', 'freecritters.web.profile.profile'),
         ('^editprofile$', 'freecritters.web.settings.edit_profile'),
+        ('^subaccounts$', 'freecritters.web.settings.subaccount_list'),
         ('^mail$', 'freecritters.web.mail.inbox'),
         ('^mail/send$', 'freecritters.web.mail.send'),
         ('^mail/(\d+)$', 'freecritters.web.mail.conversation'),
-        ('^mail/(\d+)/delete$', 'freecritters.web.mail.delete'),
         ('^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
         ('^mail/delete$', 'freecritters.web.mail.multi_delete'),
         ('^json/pre_mail_message$',

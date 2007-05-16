@@ -40,6 +40,7 @@ def register(req):
     if form.was_filled and not form.errors:
         values = form.values_dict()
         user = model.User(values['username'], values['password'])
+        user.role = model.Role.find_label(req.sess, u'default')
         req.sess.save(user)
         login = model.Login(user, None)
         req.sess.save(login)

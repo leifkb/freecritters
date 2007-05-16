@@ -24,8 +24,7 @@ class EditProfileForm(Form):
     ]
 
 def edit_profile(req):
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(u'edit_profile')
     defaults = {
         u'form_token': req.login.form_token(),
         u'profile': (req.login.user.profile, req.login.user.rendered_profile)
@@ -44,3 +43,33 @@ def edit_profile(req):
             req.login.user.pre_mail_message = values['premailmessage']
         context[u'updated'] = True
     return templates.factory.render('edit_profile', req, context)
+
+def make_subaccount_form_class(user):
+    class SubaccountForm(Form):
+        method = u'post'
+        fields = [
+            HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        ]
+        for permission in user.role.permissions:
+            fields.append(CheckboxField(
+                unicode(permission.permission_id),
+                permission.name,
+                permission.description
+            ))
+        fields.append(SubmitButton(title=u'Submit'))
+    return SubaccountForm
+    
+def subaccount_list(req):
+    req.check_permission(None)
+    if req.login.subaccount is not None:
+        raise AccessDenied()
+    subaccounts = []
+    for subaccount in req.login.user.subaccounts:
+        subaccounts.append({
+            u'id': subaccount.subaccount_id,
+            u'name': subaccount.name
+        })
+    context = {
+        u'subaccounts': subaccounts
+    }
+    return templates.factory.render('subaccount_list', req, context)

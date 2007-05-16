@@ -116,13 +116,14 @@ Index('idx_mailmessages_conversationid_sent',
 
 permissions = Table('permissions', metadata,
     Column('permission_id', Integer, primary_key=True, nullable=False),
-    Column('special', Unicode(32), unique=True, nullable=True),
+    Column('label', Unicode(32), unique=True, nullable=True),
     Column('title', Unicode(128), nullable=False),
     Column('description', Unicode, nullable=False)
 )
 
 roles = Table('roles', metadata,
     Column('role_id', Integer, primary_key=True, nullable=False),
+    Column('label', Unicode(32), unique=True, nullable=True),
     Column('name', Unicode(128), nullable=False)
 )
 
@@ -133,7 +134,18 @@ role_permissions = Table('role_permissions', metadata,
            primary_key=True)
 )
 
+subaccount_permissions = Table('subaccount_permissions', metadata,
+    Column('subaccount_id', Integer, _foreign_key('subaccounts.subaccount_id'),
+           primary_key=True),
+    Column('permission_id', Integer, _foreign_key('permissions.permission_id'),
+           primary_key=True)
+)
+
 class PasswordHolder(object):
+    """Helper class that can be subclassed to gain methods for dealing with a
+    password.
+    """
+    
     def __init__(self):
         self.salt = pack('BBBB', *[randint(0, 255) for _ in xrange(4)])
 
@@ -154,8 +166,7 @@ class PasswordHolder(object):
         
 class User(PasswordHolder):
     username_length = 20
-    # Now I have two problems.
-    username_regex = re.compile(
+    username_regex = re.compile( # Now I have two problems
         ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % username_length)
     pre_mail_message_max_length = 300
     
@@ -183,7 +194,7 @@ class User(PasswordHolder):
         
     def change_username(self, username):
         """Changes the username. Also changes the unformatted username and
-        validates the new username.
+        validates the new username (ValueError is raised if it's invalid).
         """
         
         if self.username_regex.search(username) is None:
@@ -240,6 +251,16 @@ class Login(object):
     def form_token_object(self):
         sess = object_session(self)
         return FormToken.form_token_for(sess, self.user, self.subaccount)
+    
+    def has_permission(self, permission):
+        """Returns True is this login has a particular permission. Accepts
+        either a Permission object or a permission label.
+        """
+        
+        if not isinstance(permission, Permission):
+            sess = object_session(self)
+            permission = Permission.find_label(sess, permission)
+        return permission.possessed_by(self.user, self.subaccount)
 
 class FormToken(object):
     def __init__(self, user, subaccount=None):
@@ -252,7 +273,7 @@ class FormToken(object):
     def form_token_for(cls, sess, user, subaccount=None):
         """Finds or creates a form token for a user and subaccount and returns
         it. If a token is created, it will be automatically saved in the
-        session.
+        database session.
         """
         
         query = sess.query(cls)
@@ -354,6 +375,44 @@ class MailMessage(object):
         self.rendered_message = rendered_message
         self.sent = datetime.utcnow()
         
+class Permission(object):
+    def __init__(self, title, description, label=None):
+        self.title = title
+        self.description = description
+        self.label = label
+        
+    @classmethod
+    def find_label(cls, sess, label, allow_none=False):
+        result = sess.query(cls).get_by(label=label)
+        if not allow_none:
+            assert result is not None, \
+                'Permission labelled %r not found.' % label
+        return result
+    
+    def possessed_by(self, user, subaccount=None):
+        """Checks whether this permission is possessed by a given user and,
+        optionally, subaccount.
+        """
+        
+        result = self in user.role.permissions
+                
+        if result and subaccount is not None:
+            result = self in subaccount.permissions
+        
+        return result
+        
+class Role(object):
+    def __init__(self, name, label=None):
+        self.label = label
+        self.name = name
+    
+    @classmethod
+    def find_label(cls, sess, label, allow_none=False): # Whee! Duplication!
+        result = sess.query(cls).get_by(label=label)
+        if not allow_none:
+            assert result is not None, 'Role labelled %r not found.' % label
+        return result
+        
 login_mapper = mapper(Login, logins, properties={
     'user': relation(User, backref=backref('logins',
                                            cascade='all, delete-orphan')),
@@ -366,7 +425,9 @@ form_token_mapper = mapper(FormToken, form_tokens, properties={
     'subaccount': relation(Subaccount, backref=backref('form_tokens'))
 })
 
-user_mapper = mapper(User, users)
+user_mapper = mapper(User, users, properties={
+    'role': relation(Role, backref=backref('users'))
+})
 
 subaccount_mapper = mapper(Subaccount, subaccounts, properties={
     'user': relation(User, backref=backref('subaccounts',
@@ -392,3 +453,13 @@ mail_message_mapper = mapper(MailMessage, mail_messages, properties={
     'user': relation(User, backref=backref('messages',
                                            cascade='all, delete-orphan'))
 })
+
+permission_mapper = mapper(Permission, permissions, properties={
+    'roles': relation(Role, secondary=role_permissions,
+                      backref=backref('permissions',
+                                      order_by=permissions.c.title)),
+    'subaccounts': relation(Subaccount, secondary=subaccount_permissions,
+                            backref='permissions')
+})
+
+role_mapper = mapper(Role, roles)

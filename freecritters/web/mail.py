@@ -5,6 +5,7 @@ from freecritters.model import User, MailConversation, MailParticipant, \
 from freecritters.web.links import user_link, conversation_link
 from freecritters.web.json import returns_json
 from freecritters.web import templates
+from freecritters.web.util import redirect
 from freecritters.web.form import Form, HiddenField, TextField, TextArea, \
                                   SubmitButton, SelectMenu, LengthValidator
 from freecritters.web.modifiers import UserModifier, FormTokenValidator, \
@@ -41,8 +42,7 @@ def pre_mail_message_json(req):
         }
         
 def inbox(req):
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(None)
     req.login.user.last_inbox_view = datetime.utcnow()
     query = req.sess.query(MailParticipant)
     where_clause = MailParticipant.where_clause(req.login.user)
@@ -85,7 +85,9 @@ def inbox(req):
     context = {
         u'conversations': conversations,
         u'paginator': paginator,
-        u'form_token': req.login.form_token()
+        u'form_token': req.login.form_token(),
+        u'can_send': req.has_permission('send_mail'),
+        u'can_delete': req.has_permission('delete_mail')
     }
     return templates.factory.render('inbox', req, context)
 
@@ -107,8 +109,7 @@ class SendForm(Form):
     ]
     
 def send(req):
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(u'send_mail')
     defaults = {
         u'form_token': req.login.form_token()
     }
@@ -136,7 +137,7 @@ def send(req):
         req.sess.save(message)
         req.login.user.last_inbox_view = datetime.utcnow()
         req.sess.flush()
-        raise HttpFound(conversation_link(conversation).encode('utf8'))
+        redirect(req, HttpFound, conversation_link(conversation).encode('utf8'))
     else:
         if u'preview' in values and form.was_filled and not form.errors:
             preview = values[u'message'][1]
@@ -169,8 +170,7 @@ class DeleteForm(Form):
     ]
     
 def conversation(req, conversation_id):
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(u'view_mail')
     conversation = req.sess.query(MailConversation).get(conversation_id)
     if conversation is None:
         raise PageNotFound()
@@ -190,7 +190,7 @@ def conversation(req, conversation_id):
                 u'username': participant.user.username
             })
     
-    if True: # can be deleted
+    if req.has_permission('delete_mail'):
         defaults = {
             u'delete_form_token': req.login.form_token()
         }
@@ -198,13 +198,15 @@ def conversation(req, conversation_id):
         delete_form.action = u'/mail/%s' % conversation.conversation_id
         if delete_form.was_filled and not delete_form.errors:
             participation.delete()
-            raise HttpFound('/mail')
+            redirect(req, HttpFound, '/mail')
         delete_form = delete_form.generate()
         
     else:
         delete_form = None
             
-    if conversation.can_be_replied_to_by(req.login.user, req.login.subaccount):
+    if conversation.can_be_replied_to_by(req.login.user,
+                                         req.login.subaccount) \
+       and req.has_permission(u'send_mail'):
         defaults = {
             u'form_token': req.login.form_token(),
         }
@@ -246,14 +248,14 @@ def conversation(req, conversation_id):
         u'other_participants': other_participants,
         u'reply_form': reply_form,
         u'reply_successful': 'reply_successful' in req.args,
-        u'delete_form': delete_form
+        u'delete_form': delete_form,
+        u'can_reply': req.has_permission(u'send_mail')
     }
     return templates.factory.render('mailconversation', req, context)
 
 def reply(req, conversation_id):
     # Hooray for nearly-duplicated code!
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(u'send_mail')
     conversation = req.sess.query(MailConversation).get(conversation_id)
     if conversation is None:
         raise PageNotFound()
@@ -274,8 +276,8 @@ def reply(req, conversation_id):
                 participant.last_change = datetime.utcnow()
             participant.deleted = False
         req.sess.save(message)
-        raise HttpFound('/mail/%s?reply_successful=1' \
-            % conversation.conversation_id)
+        redirect(HttpFound,
+            '/mail/%s?reply_successful=1' % conversation.conversation_id)
     if 'preview' in values and reply_form.was_filled \
             and not reply_form.errors:
         preview = values['message'][1]
@@ -300,8 +302,7 @@ class MultiDeleteForm(Form):
     ]
     
 def multi_delete(req):
-    if req.login is None:
-        raise AccessDenied()
+    req.check_permission(u'delete_mail')
         
     defaults = {
         u'form_token': req.login.form_token(),
@@ -322,7 +323,7 @@ def multi_delete(req):
             participant = conversation.find_participant(req.login.user)
             if participant is not None:
                 participant.delete()
-        raise HttpFound('/mail?page=%s' % values['page'])
+        redirect(req, HttpFound, '/mail?page=%s' % values['page'])
     else:
         context = {
             u'form': form.generate()

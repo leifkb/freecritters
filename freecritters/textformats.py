@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.htmlsanitize import sanitize_html, StandardProfile, \
-                                      StandardProfile2
+from userhtml import sanitize_html
 from HTMLParser import HTMLParseError
 from xml.sax.saxutils import escape
 import re
@@ -37,6 +36,6 @@ def render_plain_text(text, max_lines=None):
     
 def render_html(data):
     try:
-        return sanitize_html(data, StandardProfile)
+        return sanitize_html(data)
     except HTMLParseError, e:
         raise ValueError(str(e))

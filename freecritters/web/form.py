@@ -234,10 +234,10 @@ class TextField(FormField):
         return result
 
 class PasswordField(TextField):
-    """Password fields (<input type="password")."""
+    """Password fields (<input type="password">)."""
         
 class CheckBox(FormField):
-    """Check boxes (<input type="checkbox")."""
+    """Check boxes (<input type="checkbox">)."""
     
     def __init__(self, name, title=u'', description=u'', value=u'-', id_=None, 
                  modifiers=None, must_be_present=True):

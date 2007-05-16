@@ -19,7 +19,7 @@
 
 {% for message in messages %}
 <div class="mailmessage">
-<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|eq }}">{{ message.sender.username|e }}</a> &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|eq }}); return false;">quote</a></p>
+<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|eq }}">{{ message.sender.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|eq }}); return false;">quote</a>{% endif %}</p>
 <div class="mailmessagebody">{{ message.message }}</div>
 </div>
 {% endfor %}
