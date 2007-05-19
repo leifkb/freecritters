@@ -1,7 +1,7 @@
 {% extends "layout" %}
 {% marker "title" set "Inbox" %}
 {% block "content" %}
-<p>Here's your inbox.{% if can_send %}Would you like to <a href="/mail/send">send a message</a>?{% endif %}</p>
+<p>Here's your inbox.{% if can_send %} Would you like to <a href="/mail/send">send a message</a>?{% endif %}</p>
 
 {% if not conversations %}
 <p><strong>You don't have any mail.</strong></p>

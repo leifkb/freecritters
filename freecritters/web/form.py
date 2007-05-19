@@ -157,7 +157,7 @@ class FormField(object):
         self.must_be_present = must_be_present
         self.keep_failed_values = True
         
-    def value_from_raw(self, values):
+    def value_from_raw(self, values, form):
         """Takes a list (like what req.form.getlist(name) would return) of
         values in the request with the same name as this field and returns the
         field's value. If there is no value, raises FieldNotFilled.
@@ -245,7 +245,11 @@ class CheckBox(FormField):
                                        modifiers, must_be_present)
         self.value = value
     
-    def value_from_raw(self, values):
+    def value_from_raw(self, values, form):
+        if form.reliable_field is not None \
+           and form.reliable_field not in form.submitted_fields:
+            raise FieldNotFilled()
+
         return self.value in values
     
     def template_context(self, form):
@@ -278,8 +282,8 @@ class SelectMenu(FormField):
                                          modifiers, must_be_present)
         self.options = options
     
-    def value_from_raw(self, values):
-        value = super(SelectMenu, self).value_from_raw(values)
+    def value_from_raw(self, values, form):
+        value = super(SelectMenu, self).value_from_raw(values, form)
         for option_value, option_caption in self.options:
             if option_value == value:
                 return value
@@ -361,13 +365,17 @@ class Form(object):
     method = u'post'
     action = u''
     fields = []
+    reliable_field = None
     
     def __init__(self, req, defaults=None, data=None):
         """Initializes an instance (load) of the form. req is the Colubrid
         Request; defaults is a mapping keyed on field id which contains
         default field values. data is a MultiDict of data; if it's not
         present, it's pulled from req (req.form if method is post, req.args
-        if method is get).
+        if method is get). reliable_field is a field (probably hidden) which
+        is always present when the form is submitted; this is used for
+        fields like check boxes whose presence can not be separated from their
+        value.
         """
         
         if defaults is None:
@@ -383,12 +391,23 @@ class Form(object):
         self.modified_values = {}
         self.errors = {}
         self.was_filled = True
+        self.submitted_fields = []
         fields_to_modify = []
+        if self.reliable_field is not None:
+            fields = self.fields[:]
+            for index, field in enumerate(fields):
+                if field.id_ == self.reliable_field:
+                    del fields[index]
+                    fields.insert(0, field)
+                    break
+        else:
+            fields = self.fields
         for field in self.fields:
             has_value = False
             try:
-                value = field.value_from_raw(data.getlist(field.name))
+                value = field.value_from_raw(data.getlist(field.name), self)
                 self.values[field.id_] = value
+                self.submitted_fields.append(field.id_)
                 fields_to_modify.append(field)
             except FieldNotFilled:
                 if field.must_be_present:

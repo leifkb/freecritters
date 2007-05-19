@@ -4,7 +4,7 @@ from colubrid import RegexApplication, HttpResponse, Request
 from colubrid.server import StaticExports
 from colubrid.exceptions import HttpException, AccessDenied
 from sqlalchemy import create_session
-import os
+import os 
 from freecritters import model
 from freecritters.web import templates
 
@@ -64,6 +64,11 @@ class FreeCrittersApplication(RegexApplication):
         ('^users/(.+)$', 'freecritters.web.profile.profile'),
         ('^editprofile$', 'freecritters.web.settings.edit_profile'),
         ('^subaccounts$', 'freecritters.web.settings.subaccount_list'),
+        ('^subaccounts/create$', 'freecritters.web.settings.create_subaccount'),
+        ('^subaccounts/(\d+)/edit$', 'freecritters.web.settings.edit_subaccount'),
+        ('^subaccounts/(\d+)/delete$', 'freecritters.web.settings.delete_subaccount'),
+        ('^subaccounts/(\d+)/change_password$',
+         'freecritters.web.settings.change_subaccount_password'),
         ('^mail$', 'freecritters.web.mail.inbox'),
         ('^mail/send$', 'freecritters.web.mail.send'),
         ('^mail/(\d+)$', 'freecritters.web.mail.conversation'),

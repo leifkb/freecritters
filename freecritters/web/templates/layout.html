@@ -9,6 +9,7 @@
         <!--[if lt IE 7]>
         <script type="text/javascript">IE7_PNG_SUFFIX = "";</script>
         <script src="/static/ie7-standard-p.js" type="text/javascript"></script>
+        <script defer type="text/javascript" src="/static/pngfix.js"></script>
         <![endif]-->
         {% marker "head" %}
     </head>
@@ -21,7 +22,7 @@
                 <div>Not logged in.</div>
                 <div><a href="/login">Log in</a> or <a href="/register">Register</a></div>
                 {% else %}
-                <div>Logged in as <a href="{{ fc.user_link|e }}">{{ fc.username|e }}</a>, &curren;{{ fc.money|intformat|e }}</div>
+                <div>Logged in as <a href="{{ fc.user_link|e }}">{{ fc.username|e }}</a>{% if not fc.subaccount_name equals None %} ({{ fc.subaccount_name|e }}){% endif %}, &curren;{{ fc.money|intformat|e }}</div>
                 <div><a href="/logout">Log out</a>, <a href="/editprofile">preferences</a></div>
                 {% endif %}
             </div>

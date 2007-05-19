@@ -42,7 +42,7 @@ def pre_mail_message_json(req):
         }
         
 def inbox(req):
-    req.check_permission(None)
+    req.check_permission(u'view_mail')
     req.login.user.last_inbox_view = datetime.utcnow()
     query = req.sess.query(MailParticipant)
     where_clause = MailParticipant.where_clause(req.login.user)

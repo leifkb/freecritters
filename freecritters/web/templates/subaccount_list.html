@@ -1,16 +1,29 @@
 {% extends "layout" %}
 {% marker "title" set "Subaccounts" %}
 {% block "content" %}
+
+{% if deleted %}
+<p class="formsuccessful">Subaccount deleted.</p>
+{% endif %}
+{% if password_changed %}
+<p class="formsuccessful">Subaccount's password changed.</p>
+{% endif %}
+{% if created %}
+<p class="formsuccessful">Subaccount created</p>
+{% endif %}
+
 <p>Subaccounts allow you to create multiple passwords for logging into your
 account with limited capabilities. This is useful if, for instance, you want
 to let a friend take care of your pets while you're away, but you don't want
 them to be able to read your mail or anything else.</p>
 
-<p>Would you like to <a href="/create_subaccount">create a subaccount</a>?</p>
+<p>Would you like to <a href="/subaccounts/create">create a subaccount</a>?</p>
 
 {% if subaccounts %}
 <ul>
-    <li>{{ subaccount.name|e }}</li>
+    {% for subaccount in subaccounts %}
+    <li>{{ subaccount.name|e }} <a href="/subaccounts/{{ subaccount.id|e }}/edit">(edit)</a> <a href="/subaccounts/{{ subaccount.id|e }}/change_password">(change password)</a> <a href="/subaccounts/{{ subaccount.id|e }}/delete">(delete)</a></li>
+    {% endfor %}
 </ul>
 {% endif %}
 

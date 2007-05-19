@@ -2,10 +2,14 @@
 
 from freecritters.web import templates
 from freecritters.web.form import Form, HiddenField, TextArea, SelectMenu, \
-                                  SubmitButton, LengthValidator
-from freecritters.web.modifiers import FormTokenValidator, HtmlModifier
-from freecritters.model import User
-from colubrid.exceptions import AccessDenied
+                                  SubmitButton, LengthValidator, TextField, \
+                                  CheckBox, PasswordField, SameAsValidator
+from freecritters.web.modifiers import FormTokenValidator, HtmlModifier, \
+                                       SubaccountNameNotTakenValidator, \
+                                       CurrentPasswordValidator
+from freecritters.model import User, Subaccount
+from freecritters.web.util import redirect
+from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
 
 class EditProfileForm(Form):
     method = u'post'
@@ -44,20 +48,22 @@ def edit_profile(req):
         context[u'updated'] = True
     return templates.factory.render('edit_profile', req, context)
 
-def make_subaccount_form_class(user):
-    class SubaccountForm(Form):
-        method = u'post'
-        fields = [
-            HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
-        ]
-        for permission in user.role.permissions:
-            fields.append(CheckboxField(
-                unicode(permission.permission_id),
-                permission.name,
-                permission.description
-            ))
-        fields.append(SubmitButton(title=u'Submit'))
-    return SubaccountForm
+def subaccount_permission_fields(user):
+    fields = []
+    for permission in user.role.permissions:
+        fields.append(CheckBox(
+            u'perm' + unicode(permission.permission_id),
+            permission.title,
+            permission.description
+        ))
+    return fields
+
+def permissions_from_values(req, values):
+    permissions = []
+    for permission in req.login.user.role.permissions:
+        if values[u'perm' + unicode(permission.permission_id)]:
+            permissions.append(permission)
+    return permissions
     
 def subaccount_list(req):
     req.check_permission(None)
@@ -72,4 +78,142 @@ def subaccount_list(req):
     context = {
         u'subaccounts': subaccounts
     }
+    for arg in [u'deleted', u'password_changed', u'created']:
+        if arg.encode('ascii') in req.args:
+            context[arg] = True
     return templates.factory.render('subaccount_list', req, context)
+
+def create_subaccount(req):
+    req.check_permission(None)
+    if req.login.subaccount is not None:
+        raise AccessDenied()
+        
+    class CreateSubaccountForm(Form):
+        method = u'post'
+        action = u'/subaccounts/create'
+        fields = [
+            HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+            TextField(u'name', u'Name',
+                      modifiers=[LengthValidator(1),
+                                 SubaccountNameNotTakenValidator()]),
+            PasswordField(u'password', u'Password',
+                          modifiers=[LengthValidator(3)]),
+            PasswordField(u'password2', u'Re-enter Password',
+                          modifiers=[SameAsValidator(u'password')])
+        ]
+        fields += subaccount_permission_fields(req.login.user)
+        fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
+    
+    form = CreateSubaccountForm(req, {u'form_token': req.login.form_token()})
+    if form.was_filled and not form.errors:
+        values = form.values_dict()
+        subaccount = Subaccount(req.login.user, values['name'],
+                                values['password'])
+        subaccount.permissions = permissions_from_values(req, values)
+        req.sess.save(subaccount)
+        redirect(req, HttpFound, '/subaccounts?created=1')
+    else:
+        context = {u'form': form.generate()}
+        return templates.factory.render('create_subaccount', req, context)
+        
+def edit_subaccount(req, subaccount_id):
+    req.check_permission(None)
+    if req.login.subaccount is not None:
+        raise AccessDenied()
+    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    if subaccount is None:
+        raise PageNotFound()
+        
+    class EditSubaccountForm(Form):
+        method = u'post'
+        action = u'/subaccounts/%s/edit' % subaccount_id
+        reliable_field = u'form_token'
+        fields = [
+            HiddenField(u'form_token', modifiers=[FormTokenValidator()])
+        ]
+        fields += subaccount_permission_fields(req.login.user)
+        fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
+    
+    defaults = {u'form_token': req.login.form_token}
+    for permission in subaccount.permissions:
+        defaults[u'perm' + unicode(permission.permission_id)] = True
+    form = EditSubaccountForm(req, defaults)
+    if form.was_filled and not form.errors:
+        values = form.values_dict()
+        subaccount.permissions = permissions_from_values(req, values)
+        context = {u'updated': True}
+    else:
+        context = {u'updated': False}
+    context[u'form'] = form.generate()
+    context[u'subaccount_name'] = subaccount.name
+    return templates.factory.render('edit_subaccount', req, context)
+    
+class SubaccountDeleteForm(Form):
+    method = u'post'
+    fields = [
+        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        SubmitButton(title=u'Yes', id_=u'submit')
+    ]
+    
+def delete_subaccount(req, subaccount_id):
+    req.check_permission(None)
+    if req.login.subaccount is not None:
+        raise AccessDenied()
+    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    if subaccount is None:
+        raise PageNotFound()
+        
+    form = SubaccountDeleteForm(req, {u'form_token': req.login.form_token()})
+    form.action = '/subaccounts/%s/delete' % subaccount.subaccount_id
+    if form.was_filled and not form.errors:
+        req.sess.delete(subaccount)
+        redirect(req, HttpFound, '/subaccounts?deleted=1')
+    else:
+        context = {
+            u'form': form.generate(),
+            u'name': subaccount.name
+        }
+        return templates.factory.render('delete_subaccount', req, context)
+        
+class SubaccountPasswordChangeForm(Form):
+    method = u'post'
+    fields = [
+        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        PasswordField(u'account_password', u'Account password',
+                      u'The current password to your account '
+                      u'(not to the subaccount).',
+                      modifiers=[CurrentPasswordValidator()]),
+        PasswordField(u'new_password', u'New password',
+                      modifiers=[LengthValidator(3)]),
+        PasswordField(u'new_password2', u'Re-enter new password',
+                      modifiers=[SameAsValidator(u'new_password')]),
+        SubmitButton(title=u'Submit', id_=u'submit')
+    ]
+    
+def change_subaccount_password(req, subaccount_id):
+    req.check_permission(None)
+    if req.login.subaccount is not None:
+        raise AccessDenied()
+        
+    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    if subaccount is None:
+        raise PageNotFound()
+    
+    defaults = {
+        u'form_token': req.login.form_token()
+    }
+        
+    form = SubaccountPasswordChangeForm(req, defaults)
+    form.action = '/subaccounts/%s/change_password' % subaccount.subaccount_id
+    
+    if form.was_filled and not form.errors:
+        values = form.values_dict()
+        subaccount.change_password(values[u'new_password'])
+        redirect(req, HttpFound, u'/subaccounts?password_changed=1')
+    else:
+        context = {
+            u'form': form.generate(),
+            u'name': subaccount.name
+        }
+        return templates.factory.render('change_subaccount_password',
+                                        req, context)

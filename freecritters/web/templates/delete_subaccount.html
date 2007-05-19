@@ -1,0 +1,7 @@
+{% extends "layout" %}
+{% block "title" %}Delete subaccount: {{ name|e }}{% endblock %}
+{% block "content" %}
+{% require "form" %}
+<p>Are you sure you want to delete this subaccount? (If not, just go to another page.)</p>
+{% call "render_form" form %}
+{% endblock %}

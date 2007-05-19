@@ -39,19 +39,26 @@ class TemplateFactory(object):
         
         if req.login is None:
             username = None
+            subaccount_name = None
             money = None
             user_link = None
             new_mail = False
         else:
             username = req.login.user.username
+            if req.login.subaccount is not None:
+                subaccount_name = req.login.subaccount.name
+            else:
+                subaccount_name = None
             money = req.login.user.money
             user_link = links.user_link(req.login.user)
-            new_mail = req.login.user.has_new_mail()
+            new_mail = req.has_permission('view_mail') \
+                       and req.login.user.has_new_mail()
             
         return {u'fc': {u'site_name': req.config.site_name,
                         u'username': username, u'money': money,
                         u'user_link': user_link,
-                        u'new_mail': new_mail}}
+                        u'new_mail': new_mail,
+                        u'subaccount_name': subaccount_name}}
     
     def render(self, template, req, context=None):
         '''Renders a template into an HttpResponse. template can be either a

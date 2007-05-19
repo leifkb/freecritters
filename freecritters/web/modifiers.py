@@ -53,6 +53,19 @@ class SubaccountModifier(Modifier):
     
     def dependencies(self, form):
         return set((form.fields_by_id[self.user_field], ))
+
+class SubaccountNameNotTakenValidator(Modifier):
+    """Validates that a subaccount name doesn't already exist."""
+    
+    def __init__(self, message=u'Subaccount name taken.'):
+        self.message = message
+        
+    def modify(self, value, form):
+        user = form.req.login.user
+        for subaccount in user.subaccounts:
+            if subaccount.name == value:
+                raise ValidationError(self.message)
+        return value
         
 class PasswordValidator(Modifier):
     """Validates that a password is correct."""
@@ -78,6 +91,15 @@ class PasswordValidator(Modifier):
         return set((form.fields_by_id[self.user_field],
                     form.fields_by_id[self.subaccount_field]))
 
+class CurrentPasswordValidator(Modifier):
+    def __init__(self, message=u'Incorrect password.'):
+        self.message = message
+    
+    def modify(self, value, form):
+        user = form.req.login.user
+        if not user.check_password(value):
+            raise ValidationError(self.message)
+                    
 class FormTokenValidator(Modifier):
     def __init__(self, message=u"It looks you may not have meant to perform "
                                u"this action. This could be an attempt to "

@@ -249,3 +249,10 @@ li > p:first-child {
     text-align: center;
     font-size: 1.25em;
 }
+.formclearhack {
+    clear: left;
+    height: 0;
+    width: 0;
+    font-size: 0.1px;
+    line-height: 0.01;
+}
