@@ -15,6 +15,8 @@ try:
     import uuid
 except ImportError:
     from freecritters import _uuid as uuid
+import Image
+from cStringIO import StringIO
 
 def _foreign_key(name):
     """Shortcut for a cascaded foreign key."""
@@ -141,6 +143,29 @@ subaccount_permissions = Table('subaccount_permissions', metadata,
            primary_key=True)
 )
 
+#forums = Table('forums', metadata,
+#    Column('forum_id', Integer, primary_key=True),
+
+pictures = Table('pictures', metadata,
+    Column('picture_id', Integer, primary_key=True),
+    Column('added', DateTime(timezone=False), nullable=False),
+    Column('name', Unicode(128), nullable=False),
+    Column('copyright', Unicode, nullable=False),
+    Column('width', Integer, nullable=False),
+    Column('height', Integer, nullable=False),
+    Column('data', Binary, nullable=False)
+)
+
+resized_pictures = Table('resized_pictures', metadata,
+    Column('resized_picture_id', Integer, primary_key=True),
+    Column('picture_id', Integer, _foreign_key('pictures.picture_id'),nullable=False),
+    Column('added', DateTime(timezone=False), nullable=False),
+    Column('last_used', DateTime(timezone=False)),
+    Column('width', Integer, nullable=False),
+    Column('height', Integer, nullable=False),
+    Column('data', Binary, nullable=False)
+)
+
 class PasswordHolder(object):
     """Helper class that can be subclassed to gain methods for dealing with a
     password.
@@ -244,23 +269,6 @@ class Login(object):
         self.subaccount = subaccount
         self.code = unicode(uuid.uuid4())
         self.creation_time = datetime.utcnow()
-    
-    def form_token(self):
-        return self.form_token_object().token
-    
-    def form_token_object(self):
-        sess = object_session(self)
-        return FormToken.form_token_for(sess, self.user, self.subaccount)
-    
-    def has_permission(self, permission):
-        """Returns True is this login has a particular permission. Accepts
-        either a Permission object or a permission label.
-        """
-        
-        if not isinstance(permission, Permission):
-            sess = object_session(self)
-            permission = Permission.find_label(sess, permission)
-        return permission.possessed_by(self.user, self.subaccount)
 
 class FormToken(object):
     def __init__(self, user, subaccount=None):
@@ -413,6 +421,30 @@ class Role(object):
             assert result is not None, 'Role labelled %r not found.' % label
         return result
         
+class Picture(object):
+    def __init__(self, name, copyright, image):
+        if isinstance(image, Image.Image):
+            self.image = None
+        self.name = name
+        self.copyright = copyright
+        self.change_image(image)
+        self.added = datetime.utcnow()        
+    
+    def change_image(self, image):
+        """Changes the image. Argument can be a PIL image, a file-like object
+        containing image data, or a byte string containing image data."""
+        if isinstance(image, Image.Image):
+            pil_image = image
+            image = StringIO()
+            pil_image.save(image, 'PNG')
+            image = image.getvalue()
+        elif isinstance(image, str):
+            pil_image = Image.open(StringIO(image))
+        else:
+            pil_image = Image.open(image)
+            image = image.read()
+        
+        
 login_mapper = mapper(Login, logins, properties={
     'user': relation(User, backref=backref('logins',
                                            cascade='all, delete-orphan')),
@@ -438,7 +470,7 @@ mail_conversation_mapper = mapper(MailConversation, mail_conversations)
 
 mail_participant_mapper = mapper(MailParticipant, mail_participants, properties={
     'conversation': relation(MailConversation, lazy=False,
-                             backref=backref('participants',
+                             backref=backref('participants', lazy=False,
                                              cascade='all, delete-orphan')),
     'user': relation(User, lazy=False,
                      backref=backref('participations',

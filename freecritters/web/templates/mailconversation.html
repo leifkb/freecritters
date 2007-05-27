@@ -1,6 +1,16 @@
 {% extends "layout" %}
 {% block "title" %}Mail: {{ subject|e }}{% endblock %}
+
+{% block "head" %}
+<script src="/static/mailconversation.js" type="text/javascript"></script>
+{% endblock %}
+
 {% block "content" %}
+
+<script type="text/javascript">
+var expanded = {{ expanded }};
+var collapsed = {{ collapsed }};
+</script>
 
 {% if reply_successful %}
 <p class="formsuccessful">Replied sucessfully.</p>
@@ -18,7 +28,7 @@
 {% endif %}
 
 {% for message in messages %}
-<div class="mailmessage">
+<div class="mailmessage" id="mailmessage{{ message.id|e }}">
 <p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|eq }}">{{ message.sender.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|eq }}); return false;">quote</a>{% endif %}</p>
 <div class="mailmessagebody">{{ message.message }}</div>
 </div>

@@ -24,8 +24,8 @@ class LoginForm(Form):
     ]
 
 def add_login_cookies(response, login):
-    response.set_cookie('login_id', login.login_id)
-    response.set_cookie('login_code', login.code)
+    response.set_cookie('login_id', login.login_id, max_age=90*24*60*60)
+    response.set_cookie('login_code', login.code, max_age=90*24*60*60)
     
 def login(req):
     if req.login is not None:
@@ -37,6 +37,8 @@ def login(req):
         req.sess.save(login)
         req.sess.flush()
         req.login = login
+        req.user = login.user
+        req.subaccount = login.subaccount
         context = {u'username': data['user'].username}
         response = templates.factory.render('logged_in', req, context)
         add_login_cookies(response, login)

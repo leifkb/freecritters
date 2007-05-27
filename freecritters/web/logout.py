@@ -19,12 +19,15 @@ def delete_login_cookies(response):
     response.delete_cookie('response_code')
     
 def logout(req):
-    if req.login is None:
-        raise AccessDenied()
-    form = LogoutForm(req, {u'form_token': req.login.form_token()})
+    req.check_permission(None)
+    if req.login is None: # HTTP Basic
+        return templates.factory.render('cant_log_out', req)
+    form = LogoutForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
         req.sess.delete(req.login)
         req.login = None
+        req.user = None
+        req.subaccount = None
         response = templates.factory.render('logged_out', req)
         delete_login_cookies(response)
         return response

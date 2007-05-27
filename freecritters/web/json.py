@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import simplejson
-from colubrid import HttpResponse
+from freecritters.web.application import FreeCrittersResponse
 
 def returns_json(fun):
+    """Decorator which wraps a function's return value in a Colubrid
+    HTTP response containing a JSON string.
+    """
     def wrapper(*args, **kwargs):
-        return HttpResponse(simplejson.dumps(fun(*args, **kwargs)),
-                            [('Content-Type', 'application/json')])
+        return FreeCrittersResponse(simplejson.dumps(fun(*args, **kwargs)),
+                                    [('Content-Type', 'application/json')])
     return wrapper

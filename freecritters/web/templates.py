@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from colubrid import HttpResponse
+from freecritters.web.application import FreeCrittersResponse
 from jinja import Template, Context, EggLoader
 from jinja.exceptions import TemplateDoesNotExist
 from jinja.lib import stdlib
 from freecritters.web import links
+from freecritters.web.util import absolute_url
 from datetime import datetime
 
 class TemplateFactory(object):
@@ -37,36 +38,36 @@ class TemplateFactory(object):
         template.
         '''
         
-        if req.login is None:
+        if req.user is None:
             username = None
             subaccount_name = None
             money = None
             user_link = None
             new_mail = False
         else:
-            username = req.login.user.username
-            if req.login.subaccount is not None:
-                subaccount_name = req.login.subaccount.name
+            username = req.user.username
+            if req.subaccount is not None:
+                subaccount_name = req.subaccount.name
             else:
                 subaccount_name = None
-            money = req.login.user.money
-            user_link = links.user_link(req.login.user)
+            money = req.user.money
+            user_link = links.user_link(req.user)
             new_mail = req.has_permission('view_mail') \
-                       and req.login.user.has_new_mail()
+                       and req.user.has_new_mail()
             
         return {u'fc': {u'site_name': req.config.site_name,
                         u'username': username, u'money': money,
                         u'user_link': user_link,
                         u'new_mail': new_mail,
-                        u'subaccount_name': subaccount_name}}
+                        u'subaccount_name': subaccount_name,
+                        u'request': req}}
     
-    def render(self, template, req, context=None):
-        '''Renders a template into an HttpResponse. template can be either a
+    def render_string(self, template, req, context=None):
+        """Renders a template into a string. template can be either a
         jinja.Template or the name of one to be loaded. context should be a
         mapping which will be passed to the template as context, along with
         the global context.
-        '''
-        
+        """
         if not isinstance(template, Template):
             template = self.load_template(template)
         full_context = self.global_context(req)
@@ -74,9 +75,17 @@ class TemplateFactory(object):
             full_context.update(context)
         context_context = Context(full_context) # Could this line contain any
                                                 # more instances of that word?
-        return HttpResponse(template.render(context_context))
+        return template.render(context_context)
+    
+    def render(self, template, req, context=None):
+        """Renders a template into an HttpResponse. template can be either a
+        jinja.Template or the name of one to be loaded. context should be a
+        mapping which will be passed to the template as context, along with
+        the global context.
+        """
+        return FreeCrittersResponse(self.render_string(template, req, context))
         
-def handle_intformat(n, context):
+def handle_intformat(n, context):    
     n = unicode(n)
     groups = []
     if len(n) % 3 != 0:
@@ -99,12 +108,20 @@ def handle_escapequotes(text, context):
    
 def handle_eq(text, context):
     return handle_escapequotes(text, context)
-    
+
+def handle_absolute_url(text, context):
+    return absolute_url(context[u'fc'][u'request'], text)
+
+def handle_rsstimestamp(ts, context):
+    return ts.strftime('%a, %d %B %Y %H:%M:%S GMT')
+
 fclib = stdlib.clone()
 fclib.register_filter('intformat', handle_intformat)
 fclib.register_filter('datetime', handle_datetime)
 fclib.register_filter('escapequotes', handle_escapequotes)
 fclib.register_filter('eq', handle_eq)
+fclib.register_filter('absolute_url', handle_absolute_url)
+fclib.register_filter('rsstimestamp', handle_rsstimestamp)
 loader = EggLoader('freecritters', 'web/templates',
                    charset='utf-8')
 factory = TemplateFactory(loader, lib=fclib)

@@ -135,8 +135,8 @@ td {
     margin: 0;
     border: 2px ridge #7F7F7F;
 }
-textarea {
-    width: 99%;
+.formfield textarea {
+    width: 96%;
 }
 .premailmessage {
     text-align: center;
@@ -149,7 +149,7 @@ textarea {
 }
 .premailmessage h3 {
     font-size: 1em;
-    font-weight: bold
+    font-weight: bold;
     margin: 0;
     padding: 0;
 }
@@ -159,15 +159,23 @@ textarea {
 .mailmessage {
     margin-bottom: 1.5em;
 }
+.collapsed.mailmessage {
+    margin-bottom: 0.5em;
+}
 .mailmessageheader {
     background: #CCC url(/static/mailheaderbg.png) repeat-x bottom;
     color: black;
     text-align: center;
     font-size: 0.8em;
     padding: 0.25em 0;
+    margin: 0;
 }
-.mailmessagebody {
-    padding: 0.25em 0;
+.collapsed .mailmessagebody {
+    display: none;
+}
+.collapsed .mailmessageheader {
+    background: #BBB;
+    color: black;
 }
 .mailmessagebody {
     padding: 0 0.5em;
@@ -234,9 +242,6 @@ li > p:first-child {
 /* \*/
 * html #content {height: 1%;}
 /* */
-.formfieldcontrol textarea {
-    _margin-top: -1em;
-}
 .preview {
     border: 1px solid #CCC;
     background: #EEE;

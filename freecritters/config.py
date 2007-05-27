@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from ConfigParser import SafeConfigParser
 from sqlalchemy import create_engine
 import yaml
 from freecritters.model import metadata

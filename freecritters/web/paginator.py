@@ -35,7 +35,8 @@ class Paginator(object):
                 continue
             for val in vals:
                 args.append((key, val))
-        url = req.environ['APPLICATION_REQUEST']
+
+        url = req.environ['PATH_INFO']
         
         self.args = args
         

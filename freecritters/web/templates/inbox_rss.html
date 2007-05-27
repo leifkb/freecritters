@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+    <channel>
+        <title>{{ fc.site_name|e }} mail</title>
+        <link>{{ "/mail"|absolute_url }}</link>
+        <description>{{ fc.username|e }}'s mail on {{ fc.site_name|e }}.</description>
+        <pubDate>{{ last_change|rsstimestamp|e }}</pubDate>
+        <lastBuildDate>{{ last_change|rsstimestamp|e }}</lastBuildDate>
+        <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+        <generator>freeCritters</generator>
+        {% for message in messages %}
+        <item>
+            <title>{{
+                message.subject|e }}{%
+                if not message.username equals None %} from {{ message.username|e
+            }}{% endif %}</title>
+            <description>{{ message.message|e }}</description>
+            <link>{{ "/mail/"|absolute_url }}{{ message.conversation_id|e }}#mailmessage{{ message.id|e }}</link>
+            <pubDate>{{ message.sent|rsstimestamp|e }}</pubDate>
+            <guid>{{ "/mail/"|absolute_url }}{{ message.conversation_id|e }}#mailmessage{{ message.id|e }}</guid>
+        </item>
+        {% endfor %}
+    </channel>
+</rss>

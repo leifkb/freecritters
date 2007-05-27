@@ -61,7 +61,7 @@ class SubaccountNameNotTakenValidator(Modifier):
         self.message = message
         
     def modify(self, value, form):
-        user = form.req.login.user
+        user = form.req.user
         for subaccount in user.subaccounts:
             if subaccount.name == value:
                 raise ValidationError(self.message)
@@ -96,7 +96,7 @@ class CurrentPasswordValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        user = form.req.login.user
+        user = form.req.user
         if not user.check_password(value):
             raise ValidationError(self.message)
                     
@@ -110,9 +110,7 @@ class FormTokenValidator(Modifier):
     def modify(self, value, form):
         req = form.req
         sess = req.sess
-        login = req.login
-        form_token = FormToken.find_form_token(sess, value, login.user,
-                                               login.subaccount)
+        form_token = FormToken.find_form_token(sess, value, req.user, req.subaccount)
         if form_token is None:
             raise ValidationError(self.message)
             
@@ -135,6 +133,6 @@ class NotMeValidator(Modifier):
         self.message = message
         
     def modify(self, value, form):
-        if form.req.login is not None and form.req.login.user == value:
+        if form.req.user == value:
             raise ValidationError(self.message)
         return value

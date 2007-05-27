@@ -34,7 +34,7 @@ class RegisterForm(Form):
     ]
 
 def register(req):
-    if req.login is not None:
+    if req.user is not None:
         raise AccessDenied()
     form = RegisterForm(req)
     if form.was_filled and not form.errors:
@@ -46,6 +46,7 @@ def register(req):
         req.sess.save(login)
         req.sess.flush()
         req.login = login
+        req.user = login.user
         context = {u'username': values['username']}
         response = templates.factory.render('registered', req, context)
         add_login_cookies(response, login)

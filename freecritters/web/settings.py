@@ -30,21 +30,21 @@ class EditProfileForm(Form):
 def edit_profile(req):
     req.check_permission(u'edit_profile')
     defaults = {
-        u'form_token': req.login.form_token(),
-        u'profile': (req.login.user.profile, req.login.user.rendered_profile)
+        u'form_token': req.form_token(),
+        u'profile': (req.user.profile, req.user.rendered_profile)
     }
-    if req.login.user.pre_mail_message is not None:
-        defaults['premailmessage'] = req.login.user.pre_mail_message
+    if req.user.pre_mail_message is not None:
+        defaults['premailmessage'] = req.user.pre_mail_message
     form = EditProfileForm(req, defaults)
     context = {u'form': form.generate()}
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        req.login.user.profile = values[u'profile'][0]
-        req.login.user.rendered_profile = values[u'profile'][1]
+        req.user.profile = values[u'profile'][0]
+        req.user.rendered_profile = values[u'profile'][1]
         if values['premailmessage'].isspace() or not values['premailmessage']:
-            req.login.user.pre_mail_message = None
+            req.user.pre_mail_message = None
         else:
-            req.login.user.pre_mail_message = values['premailmessage']
+            req.user.pre_mail_message = values['premailmessage']
         context[u'updated'] = True
     return templates.factory.render('edit_profile', req, context)
 
@@ -60,17 +60,17 @@ def subaccount_permission_fields(user):
 
 def permissions_from_values(req, values):
     permissions = []
-    for permission in req.login.user.role.permissions:
+    for permission in req.user.role.permissions:
         if values[u'perm' + unicode(permission.permission_id)]:
             permissions.append(permission)
     return permissions
     
 def subaccount_list(req):
     req.check_permission(None)
-    if req.login.subaccount is not None:
+    if req.subaccount is not None:
         raise AccessDenied()
     subaccounts = []
-    for subaccount in req.login.user.subaccounts:
+    for subaccount in req.user.subaccounts:
         subaccounts.append({
             u'id': subaccount.subaccount_id,
             u'name': subaccount.name
@@ -85,7 +85,7 @@ def subaccount_list(req):
 
 def create_subaccount(req):
     req.check_permission(None)
-    if req.login.subaccount is not None:
+    if req.subaccount is not None:
         raise AccessDenied()
         
     class CreateSubaccountForm(Form):
@@ -101,13 +101,13 @@ def create_subaccount(req):
             PasswordField(u'password2', u'Re-enter Password',
                           modifiers=[SameAsValidator(u'password')])
         ]
-        fields += subaccount_permission_fields(req.login.user)
+        fields += subaccount_permission_fields(req.user)
         fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
     
-    form = CreateSubaccountForm(req, {u'form_token': req.login.form_token()})
+    form = CreateSubaccountForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        subaccount = Subaccount(req.login.user, values['name'],
+        subaccount = Subaccount(req.user, values['name'],
                                 values['password'])
         subaccount.permissions = permissions_from_values(req, values)
         req.sess.save(subaccount)
@@ -118,7 +118,7 @@ def create_subaccount(req):
         
 def edit_subaccount(req, subaccount_id):
     req.check_permission(None)
-    if req.login.subaccount is not None:
+    if req.subaccount is not None:
         raise AccessDenied()
     subaccount = req.sess.query(Subaccount).get(subaccount_id)
     if subaccount is None:
@@ -131,10 +131,10 @@ def edit_subaccount(req, subaccount_id):
         fields = [
             HiddenField(u'form_token', modifiers=[FormTokenValidator()])
         ]
-        fields += subaccount_permission_fields(req.login.user)
+        fields += subaccount_permission_fields(req.user)
         fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
     
-    defaults = {u'form_token': req.login.form_token}
+    defaults = {u'form_token': req.form_token}
     for permission in subaccount.permissions:
         defaults[u'perm' + unicode(permission.permission_id)] = True
     form = EditSubaccountForm(req, defaults)
@@ -157,13 +157,13 @@ class SubaccountDeleteForm(Form):
     
 def delete_subaccount(req, subaccount_id):
     req.check_permission(None)
-    if req.login.subaccount is not None:
+    if req.subaccount is not None:
         raise AccessDenied()
     subaccount = req.sess.query(Subaccount).get(subaccount_id)
     if subaccount is None:
         raise PageNotFound()
         
-    form = SubaccountDeleteForm(req, {u'form_token': req.login.form_token()})
+    form = SubaccountDeleteForm(req, {u'form_token': req.form_token()})
     form.action = '/subaccounts/%s/delete' % subaccount.subaccount_id
     if form.was_filled and not form.errors:
         req.sess.delete(subaccount)
@@ -192,7 +192,7 @@ class SubaccountPasswordChangeForm(Form):
     
 def change_subaccount_password(req, subaccount_id):
     req.check_permission(None)
-    if req.login.subaccount is not None:
+    if req.subaccount is not None:
         raise AccessDenied()
         
     subaccount = req.sess.query(Subaccount).get(subaccount_id)
@@ -200,7 +200,7 @@ def change_subaccount_password(req, subaccount_id):
         raise PageNotFound()
     
     defaults = {
-        u'form_token': req.login.form_token()
+        u'form_token': req.form_token()
     }
         
     form = SubaccountPasswordChangeForm(req, defaults)
