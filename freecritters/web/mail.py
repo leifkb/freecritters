@@ -14,7 +14,7 @@ from freecritters.web.paginator import Paginator
 from freecritters.web.application import FreeCrittersResponse
 from colubrid.utils import MultiDict
 from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
-from sqlalchemy import desc, lazyload, eagerload, and_
+from sqlalchemy import desc, lazyload, eagerload, and_, Query
 from datetime import datetime
 import simplejson
 
@@ -28,7 +28,7 @@ def pre_mail_message_json(req):
             u'username': None,
             u'message': None
         }
-    user = User.find_user(req.sess, username)
+    user = User.find_user(username)
     if user is None:
         return {
             u'requested_username': username,
@@ -65,12 +65,12 @@ def _conversation_data(participation):
 
                          
 def _inbox_data(req, where_clause, limit, offset=0):
-    query = req.sess.query(MailParticipant).options(lazyload('conversation'), lazyload('user'))
+    query = Query(MailParticipant).options(lazyload('conversation'), lazyload('user'))
     participations = query.select(where_clause,
                                   order_by=desc(MailParticipant.c.last_change),
                                   limit=limit, offset=offset)
     # Load all the conversations at once (this is faster than eager loading)
-    req.sess.query(MailConversation).select(
+    Query(MailConversation).select(
         MailConversation.c.conversation_id.in_(*[p.conversation_id for p in participations])
     )
     conversations = [_conversation_data(participation)
@@ -92,7 +92,7 @@ def _message_data(message):
     return result
     
 def _inbox_rss_data(req, limit, offset=0):
-    query = req.sess.query(MailMessage).options(lazyload('conversation'))
+    query = Query(MailMessage).options(lazyload('conversation'))
     where_clause = MailParticipant.where_clause(req.user)
     messages = query.select(and_(where_clause,
                                  MailMessage.c.user_id!=req.user.user_id,
@@ -112,7 +112,7 @@ def _inbox_rss_data(req, limit, offset=0):
 def inbox(req):
     req.check_permission(u'view_mail')
     req.user.last_inbox_view = datetime.utcnow()
-    query = req.sess.query(MailParticipant)
+    query = Query(MailParticipant)
     where_clause = MailParticipant.where_clause(req.user)
     paginator = Paginator(req, query.count(where_clause))
     context = {
@@ -154,7 +154,7 @@ def send(req):
         u'form_token': req.form_token()
     }
     if 'user' in req.args:
-        user = User.find_user(req.sess, req.args['user'])
+        user = User.find_user(req.args['user'])
         if user is not None:
             pre_mail_message = user.render_pre_mail_message()
             defaults['user'] = user
@@ -166,17 +166,12 @@ def send(req):
     form = SendForm(req, defaults)
     values = form.values_dict()
     if form.was_filled and not form.errors and u'preview' not in values:
-        for i in xrange(10000):
-            conversation = MailConversation(values[u'subject'])
-            req.sess.save(conversation)
-            participant1 = MailParticipant(conversation, req.user)
-            req.sess.save(participant1)
-            participant2 = MailParticipant(conversation, values[u'user'])
-            req.sess.save(participant2)
-            message = MailMessage(conversation, req.user,
-                                  values[u'message'][0], values[u'message'][1])
-            req.sess.save(message)
-            req.sess.flush()
+        conversation = MailConversation(values[u'subject'])
+        participant1 = MailParticipant(conversation, req.user)
+        participant2 = MailParticipant(conversation, values[u'user'])
+        message = MailMessage(conversation, req.user,
+                              values[u'message'][0], values[u'message'][1])
+        req.sess.flush()
         req.user.last_inbox_view = datetime.utcnow()
         redirect(req, HttpFound, conversation_link(conversation).encode('utf8'))
     else:
@@ -212,7 +207,7 @@ class DeleteForm(Form):
     
 def conversation(req, conversation_id):
     req.check_permission(u'view_mail')
-    conversation = req.sess.query(MailConversation).get(conversation_id)
+    conversation = Query(MailConversation).get(conversation_id)
     if conversation is None:
         raise PageNotFound()
     if not conversation.can_be_viewed_by(req.user, req.subaccount):
@@ -252,7 +247,7 @@ def conversation(req, conversation_id):
         }
         if 'quote' in req.args and req.args['quote'].isdigit():
             quoted_id = int(req.args['quote'])
-            quoted_message = req.sess.query(MailMessage).get(quoted_id)
+            quoted_message = Query(MailMessage).get(quoted_id)
             if quoted_message is not None \
                and quoted_message.conversation == conversation:
                 defaults[u'message'] = (
@@ -307,7 +302,7 @@ def conversation(req, conversation_id):
 def reply(req, conversation_id):
     # Hooray for nearly-duplicated code!
     req.check_permission(u'send_mail')
-    conversation = req.sess.query(MailConversation).get(conversation_id)
+    conversation = Query(MailConversation).get(conversation_id)
     if conversation is None:
         raise PageNotFound()
     if not conversation.can_be_replied_to_by(req.user, req.subaccount):
@@ -326,7 +321,6 @@ def reply(req, conversation_id):
             if participant.user != req.user:
                 participant.last_change = datetime.utcnow()
             participant.deleted = False
-        req.sess.save(message)
         redirect(req, HttpFound,
             '/mail/%s?reply_successful=1' % conversation.conversation_id)
     if 'preview' in values and reply_form.was_filled \
@@ -368,7 +362,7 @@ def multi_delete(req):
                 id_ = int(id_)
             except ValueError:
                 continue
-            conversation = req.sess.query(MailConversation).get(id_)
+            conversation = Query(MailConversation).get(id_)
             if conversation is None:
                 continue
             participant = conversation.find_participant(req.user)

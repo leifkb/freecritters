@@ -3,8 +3,11 @@
 from sqlalchemy import DynamicMetaData, Table, Column, Integer, Unicode, \
                        mapper, Binary, DateTime, func, ForeignKey, relation, \
                        backref, UniqueConstraint, Index, object_session, \
-                       and_, Boolean, select, func, cast
+                       and_, Boolean, select, func, cast, String, \
+                       create_session, Query
 from sqlalchemy.sql import literal
+from sqlalchemy.ext.sessioncontext import SessionContext
+from sqlalchemy.orm.mapper import global_extensions
 import sha
 import re
 from random import randint
@@ -22,6 +25,9 @@ def _foreign_key(name):
     """Shortcut for a cascaded foreign key."""
     
     return ForeignKey(name, onupdate='CASCADE', ondelete='CASCADE')
+
+ctx = SessionContext(create_session)
+global_extensions.append(ctx.mapper_extension)
 
 metadata = DynamicMetaData()
 
@@ -153,6 +159,7 @@ pictures = Table('pictures', metadata,
     Column('copyright', Unicode, nullable=False),
     Column('width', Integer, nullable=False),
     Column('height', Integer, nullable=False),
+    Column('format', String(16), nullable=False),
     Column('data', Binary, nullable=False)
 )
 
@@ -246,15 +253,15 @@ class User(PasswordHolder):
                 or self.last_inbox_view < last_mail_change
             
     @classmethod
-    def find_user(cls, sess, username):
+    def find_user(cls, username):
         """Finds a user by username or (stringified) user ID. Returns None if
         the user doesn't exist.
         """
         if username.isdigit():
-            return sess.query(cls).get(int(username))
+            return Query(cls).get(int(username))
         else:
             username = cls.unformat_username(username)
-            return sess.query(cls).get_by_unformatted_username(username)
+            return Query(cls).get_by_unformatted_username(username)
             
 class Subaccount(PasswordHolder):
     def __init__(self, user, name, password):
@@ -278,13 +285,13 @@ class FormToken(object):
         self.creation_time = datetime.utcnow()
     
     @classmethod
-    def form_token_for(cls, sess, user, subaccount=None):
+    def form_token_for(cls, user, subaccount=None):
         """Finds or creates a form token for a user and subaccount and returns
         it. If a token is created, it will be automatically saved in the
         database session.
         """
         
-        query = sess.query(cls)
+        query = Query(cls)
         min_creation_time = datetime.utcnow() - timedelta(days=1)
         if subaccount is None:
             subaccount_clause = cls.c.subaccount_id==None
@@ -297,17 +304,15 @@ class FormToken(object):
         form_token = query.selectfirst(clause)
         if form_token is None:
             form_token = cls(user, subaccount)
-            sess.save(form_token)
         return form_token
     
     @classmethod
-    def find_form_token(cls, sess, token, user, subaccount=None):
+    def find_form_token(cls, token, user, subaccount=None):
         """Finds an existing form token, or returns None if it doesn't
         exist.
         """
-        
         # Blah, blah, reuse code instead of copying and pasting, blah blah...
-        query = sess.query(cls)
+        query = Query(cls)
         min_creation_time = datetime.utcnow() - timedelta(days=7)
         if subaccount is None:
             subaccount_clause = cls.c.subaccount_id==None
@@ -329,11 +334,10 @@ class MailConversation(object):
         self.creation_time = datetime.utcnow()
     
     def find_participant(self, user):
-        return object_session(self).query(MailParticipant).selectfirst(and_(
-            mail_participants.c.conversation_id==self.conversation_id,
-            mail_participants.c.user_id==user.user_id,
-            mail_participants.c.deleted==False
-        ))
+        for participant in self.participants:
+            if participant.user == user and participant.deleted == False:
+                return participant
+        return None
         
     def can_be_viewed_by(self, user, subaccount):
         return self.find_participant(user) is not None
@@ -390,8 +394,8 @@ class Permission(object):
         self.label = label
         
     @classmethod
-    def find_label(cls, sess, label, allow_none=False):
-        result = sess.query(cls).get_by(label=label)
+    def find_label(cls, label, allow_none=False):
+        result = Query(cls).get_by_label(label)
         if not allow_none:
             assert result is not None, \
                 'Permission labelled %r not found.' % label
@@ -415,8 +419,8 @@ class Role(object):
         self.name = name
     
     @classmethod
-    def find_label(cls, sess, label, allow_none=False): # Whee! Duplication!
-        result = sess.query(cls).get_by(label=label)
+    def find_label(cls, label, allow_none=False): # Whee! Duplication!
+        result = Query(cls).get_by_label(label)
         if not allow_none:
             assert result is not None, 'Role labelled %r not found.' % label
         return result
@@ -435,15 +439,22 @@ class Picture(object):
         containing image data, or a byte string containing image data."""
         if isinstance(image, Image.Image):
             pil_image = image
-            image = StringIO()
-            pil_image.save(image, 'PNG')
-            image = image.getvalue()
+            image = None
         elif isinstance(image, str):
             pil_image = Image.open(StringIO(image))
         else:
-            pil_image = Image.open(image)
             image = image.read()
-        
+            pil_image = Image.open(StringIO(image))
+        format = pil_image.format
+        if format not in ('PNG', 'JPEG'):
+            image = None
+            format = 'PNG'
+        if image is None:
+            image = StringIO()
+            pil_image.save(image, format)
+        self.width, self.height = pil_image.size
+        self.format = format
+        self.image = image
         
 login_mapper = mapper(Login, logins, properties={
     'user': relation(User, backref=backref('logins',

@@ -3,9 +3,9 @@
 from colubrid import RegexApplication, HttpResponse, Request
 from colubrid.server import StaticExports
 from colubrid.exceptions import HttpException, AccessDenied
-from sqlalchemy import create_session
+from sqlalchemy import create_session, Query
 import os 
-from freecritters import model
+from freecritters.model import ctx, Login, Permission, User, Role, FormToken
 from base64 import b64decode
 
 class FreeCrittersRequest(Request):
@@ -14,7 +14,8 @@ class FreeCrittersRequest(Request):
         super(FreeCrittersRequest, self).__init__(environ, start_response,
                                                   charset)
         self.config = environ['freecritters.config']
-        self.sess = create_session(bind_to=self.config.db_engine)
+        self.sess = ctx.current
+        self.sess.bind_to = self.config.db_engine
         self.trans = self.sess.create_transaction()
         self._find_login()
     
@@ -27,7 +28,7 @@ class FreeCrittersRequest(Request):
                 login_id = int(self.cookies['login_id'].value)
             except ValueError:
                 return
-            login = self.sess.query(model.Login).get(login_id)
+            login = Query(Login).get(login_id)
             if login is None:
                 return
             if login.code == self.cookies['login_code'].value.decode('ascii'):
@@ -47,11 +48,11 @@ class FreeCrittersRequest(Request):
                 username, subaccount_name = username.split(u'@', 1)
             else:
                 subaccount_name = None                            
-            user = model.User.find_user(self.sess, username)
+            user = User.find_user(username)
             if user is None:
                 return
             if subaccount_name is not None:
-                subaccount = self.sess.query.get_by(user_id=authenticator.user_id, name=subaccount_name)
+                subaccount = Query(Subaccount).get_by(user_id=user.user_id, name=subaccount_name)
                 if subaccount is None:
                     return
                 authenticator = subaccount
@@ -73,8 +74,8 @@ class FreeCrittersRequest(Request):
             return False
         if permission is None:
             return True
-        if not isinstance(permission, model.Permission):
-            permission = model.Permission.find_label(self.sess, permission)
+        if not isinstance(permission, Permission):
+            permission = Permission.find_label(permission)
         return permission.possessed_by(self.user, self.subaccount)
         
     def check_permission(self, permission):
@@ -96,7 +97,7 @@ class FreeCrittersRequest(Request):
         return self.form_token_object().token
 
     def form_token_object(self):
-        return model.FormToken.form_token_for(self.sess, self.user, self.subaccount)
+        return FormToken.form_token_for(self.user, self.subaccount)
             
 class RSS401(HttpException):
     code = 401
@@ -145,6 +146,7 @@ class FreeCrittersApplication(RegexApplication):
             return response
         finally:
             self.request.sess.close()
+            del ctx.current
     
     def process_http_exception(self, e):
         from freecritters.web import templates

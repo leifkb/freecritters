@@ -34,7 +34,6 @@ def login(req):
     if form.was_filled and not form.errors:
         data = form.values_dict()
         login = model.Login(data['user'], data['subaccount'])
-        req.sess.save(login)
         req.sess.flush()
         req.login = login
         req.user = login.user
@@ -46,7 +45,3 @@ def login(req):
     else:
         context = {u'form': form.generate()}
         return templates.factory.render('login_form', req, context)
-    
-def test(req, foo, bar):
-    from colubrid import HttpResponse
-    return HttpResponse('%s | %s' % (foo, bar))

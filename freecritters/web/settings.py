@@ -110,7 +110,6 @@ def create_subaccount(req):
         subaccount = Subaccount(req.user, values['name'],
                                 values['password'])
         subaccount.permissions = permissions_from_values(req, values)
-        req.sess.save(subaccount)
         redirect(req, HttpFound, '/subaccounts?created=1')
     else:
         context = {u'form': form.generate()}
@@ -120,7 +119,7 @@ def edit_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
         raise AccessDenied()
-    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    subaccount = Query(Subaccount).get(subaccount_id)
     if subaccount is None:
         raise PageNotFound()
         
@@ -159,7 +158,7 @@ def delete_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
         raise AccessDenied()
-    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    subaccount = Query(Subaccount).get(subaccount_id)
     if subaccount is None:
         raise PageNotFound()
         
@@ -195,7 +194,7 @@ def change_subaccount_password(req, subaccount_id):
     if req.subaccount is not None:
         raise AccessDenied()
         
-    subaccount = req.sess.query(Subaccount).get(subaccount_id)
+    subaccount = Query(Subaccount).get(subaccount_id)
     if subaccount is None:
         raise PageNotFound()
     

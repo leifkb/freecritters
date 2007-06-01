@@ -14,7 +14,7 @@ class UsernameNotTakenValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        if User.find_user(form.req.sess, value) is not None:
+        if User.find_user(value) is not None:
             raise ValidationError(self.message)
         return value
 
@@ -25,7 +25,7 @@ class UserModifier(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        user = User.find_user(form.req.sess, value)
+        user = User.find_user(value)
         if user is None:
             raise ValidationError(self.message)
         return user
@@ -45,7 +45,7 @@ class SubaccountModifier(Modifier):
             return None
         else:
             user = form.modified_values[self.user_field]
-            query = form.req.sess.query(Subaccount)
+            query = Query(Subaccount)
             subaccount = query.get_by(user_id=user.user_id, name=value)
             if subaccount is None:
                 raise ValidationError(self.message)
@@ -108,9 +108,7 @@ class FormTokenValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        req = form.req
-        sess = req.sess
-        form_token = FormToken.find_form_token(sess, value, req.user, req.subaccount)
+        form_token = FormToken.find_form_token(value, form.req.user, form.req.subaccount)
         if form_token is None:
             raise ValidationError(self.message)
             
