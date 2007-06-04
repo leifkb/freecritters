@@ -4,7 +4,7 @@ from sqlalchemy import DynamicMetaData, Table, Column, Integer, Unicode, \
                        mapper, Binary, DateTime, func, ForeignKey, relation, \
                        backref, UniqueConstraint, Index, object_session, \
                        and_, Boolean, select, func, cast, String, \
-                       create_session, Query
+                       create_session, Query, deferred
 from sqlalchemy.sql import literal
 from sqlalchemy.ext.sessioncontext import SessionContext
 from sqlalchemy.orm.mapper import global_extensions
@@ -157,20 +157,26 @@ pictures = Table('pictures', metadata,
     Column('added', DateTime(timezone=False), nullable=False),
     Column('name', Unicode(128), nullable=False),
     Column('copyright', Unicode, nullable=False),
+    Column('description', Unicode, nullable=False),
     Column('width', Integer, nullable=False),
     Column('height', Integer, nullable=False),
     Column('format', String(16), nullable=False),
-    Column('data', Binary, nullable=False)
+    Column('image', Binary, nullable=False)
 )
 
 resized_pictures = Table('resized_pictures', metadata,
     Column('resized_picture_id', Integer, primary_key=True),
-    Column('picture_id', Integer, _foreign_key('pictures.picture_id'),nullable=False),
+    Column('picture_id', Integer, _foreign_key('pictures.picture_id'), index=True, nullable=False),
     Column('added', DateTime(timezone=False), nullable=False),
-    Column('last_used', DateTime(timezone=False)),
+    Column('last_used', DateTime(timezone=False), index=True),
     Column('width', Integer, nullable=False),
     Column('height', Integer, nullable=False),
-    Column('data', Binary, nullable=False)
+    Column('image', Binary, nullable=False)
+)
+Index('idx_resizedpictures_pictureid_width_height',
+    resized_pictures.c.picture_id,
+    resized_pictures.c.width,
+    resized_pictures.c.height
 )
 
 class PasswordHolder(object):
@@ -424,13 +430,12 @@ class Role(object):
         if not allow_none:
             assert result is not None, 'Role labelled %r not found.' % label
         return result
-        
+    
 class Picture(object):
-    def __init__(self, name, copyright, image):
-        if isinstance(image, Image.Image):
-            self.image = None
+    def __init__(self, name, copyright, description, image):
         self.name = name
         self.copyright = copyright
+        self.description = description
         self.change_image(image)
         self.added = datetime.utcnow()        
     
@@ -452,9 +457,93 @@ class Picture(object):
         if image is None:
             image = StringIO()
             pil_image.save(image, format)
+            image = image.getvalue()
         self.width, self.height = pil_image.size
         self.format = format
         self.image = image
+    
+    _mime_types = {
+        'PNG': 'image/png',
+        'JPEG': 'image/jpeg'
+    }
+    
+    @property
+    def mime_type(self):
+        try:
+            return self._mime_types[self.format]
+        except KeyError:
+            raise AssertionError("Unknown format %r." % self.format)
+    
+    _extensions = {
+        'PNG': '.png',
+        'JPEG': '.jpeg'
+    }
+    
+    @property
+    def extension(self):
+        try:
+            return self._extensions[self.format]
+        except KeyError:
+            raise AssertionError("Unknown format %r." % self.format)
+    
+    @property
+    def pil_image(self):
+        data = StringIO(self.image)
+        return Image.open(data)
+    
+    def resized_within(self, width, height):
+        """Like resized_to, but the resulting image will fit within the
+        dimensions while preserving its aspect ration.
+        """
+        if width > self.width and height > self.height:
+            return self
+        if self.width > width:
+            new_height = int(round(max(self.height * width / float(self.width), 1.0)))
+            new_width = width
+        else:
+            new_width = int(round(max(self.width * height / float(self.height), 1.0)))
+            new_height = height
+        return self.resized_to(new_width, new_height)
+    
+    def resized_to(self, width, height):
+        """Resizes the picture to the given dimensions. Returns a ResizedPicture,
+        or self if the dimensions are the same.
+        """
+        if width == self.width and height == self.height:
+            return self
+        picture = Query(ResizedPicture).get_by(picture_id=self.picture_id,
+                                               width=width, height=height)
+        if picture is not None:
+            return picture
+        picture = ResizedPicture(self, width, height)
+        ctx.current.flush()
+        return picture
+
+class ResizedPicture(object):
+    def __init__(self, picture, width, height):
+        self.picture = picture
+        pil_image = picture.pil_image
+            
+        if pil_image.mode not in ('RGB', 'RGBA'):
+            # Unfortunately, PIL doesn't support generating a palette from an
+            # RGBA image, so we can't resize paletted images back into paletted
+            # images.
+            pil_image = pil_image.convert('RGBA')
+            
+        pil_image = pil_image.resize((width, height), Image.ANTIALIAS)
+
+        image = StringIO()
+        pil_image.save(image, picture.format)
+        
+        self.image = image.getvalue()
+        self.added = datetime.utcnow()
+        self.width = width
+        self.height = height
+        
+    @property
+    def pil_image(self):
+        data = StringIO(self.image)
+        return Image.open(data)
         
 login_mapper = mapper(Login, logins, properties={
     'user': relation(User, backref=backref('logins',
@@ -503,6 +592,15 @@ permission_mapper = mapper(Permission, permissions, properties={
                                       order_by=permissions.c.title)),
     'subaccounts': relation(Subaccount, secondary=subaccount_permissions,
                             backref='permissions')
+})
+
+picture_mapper = mapper(Picture, pictures, properties={
+    'image': deferred(pictures.c.image)
+})
+
+resized_picture_mapper = mapper(ResizedPicture, resized_pictures, properties={
+    'picture': relation(Picture, backref=backref('resized_pictures', cascade='all, delete-orphan')),
+    'image': deferred(resized_pictures.c.image)
 })
 
 role_mapper = mapper(Role, roles)

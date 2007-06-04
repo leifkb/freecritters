@@ -8,6 +8,11 @@
            %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif
            %}{% if not field.max_length equals None %}maxlength="{{ field.max_length|e }}"{% endif %}>{%
     endif %}{%
+    if field.type equals "ColorSelector"
+    %}<input type="text" class="color" {{ name }} {% if field.has_value %}value="{{ field.value|e }}"{% endif
+           %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif
+           %}{% if not field.max_length equals None %}maxlength="{{ field.max_length|e }}"{% endif %}>{%
+    endif %}{%
     if field.type equals "PasswordField"
     %}<input type="password" {{ name }} {% if field.has_value %}value="{{ field.value|e }}"{% endif
            %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif

@@ -126,10 +126,39 @@ subaccount_permissions = Table('subaccount_permissions', metadata,
            primary_key=True)
 )
 
+#forums = Table('forums', metadata,
+#    Column('forum_id', Integer, primary_key=True),
+
+pictures = Table('pictures', metadata,
+    Column('picture_id', Integer, primary_key=True),
+    Column('added', DateTime(timezone=False), nullable=False),
+    Column('name', Unicode(128), nullable=False),
+    Column('copyright', Unicode, nullable=False),
+    Column('description', Unicode, nullable=False),
+    Column('width', Integer, nullable=False),
+    Column('height', Integer, nullable=False),
+    Column('format', String(16), nullable=False),
+    Column('image', Binary, nullable=False)
+)
+
+resized_pictures = Table('resized_pictures', metadata,
+    Column('resized_picture_id', Integer, primary_key=True),
+    Column('picture_id', Integer, _foreign_key('pictures.picture_id'), index=True, nullable=False),
+    Column('added', DateTime(timezone=False), nullable=False),
+    Column('last_used', DateTime(timezone=False), index=True),
+    Column('width', Integer, nullable=False),
+    Column('height', Integer, nullable=False),
+    Column('image', Binary, nullable=False)
+)
+Index('idx_resizedpictures_pictureid_width_height',
+    resized_pictures.c.picture_id,
+    resized_pictures.c.width,
+    resized_pictures.c.height
+)
 tables = [
     roles, users, subaccounts, logins, form_tokens, mail_conversations,
     mail_participants, mail_messages, permissions, role_permissions,
-    subaccount_permissions
+    subaccount_permissions, pictures, resized_pictures
 ]
 
 def upgrade():

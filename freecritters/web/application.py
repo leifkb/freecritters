@@ -105,25 +105,26 @@ class RSS401(HttpException):
 class FreeCrittersApplication(RegexApplication):
     charset = 'utf-8'
     urls = [
-        ('^$', 'freecritters.web.home.home'),
-        ('^register$', 'freecritters.web.register.register'),
-        ('^login$', 'freecritters.web.login.login'),
-        ('^logout$', 'freecritters.web.logout.logout'),
-        ('^users/(.+)$', 'freecritters.web.profile.profile'),
-        ('^editprofile$', 'freecritters.web.settings.edit_profile'),
-        ('^subaccounts$', 'freecritters.web.settings.subaccount_list'),
-        ('^subaccounts/create$', 'freecritters.web.settings.create_subaccount'),
-        ('^subaccounts/(\d+)/edit$', 'freecritters.web.settings.edit_subaccount'),
-        ('^subaccounts/(\d+)/delete$', 'freecritters.web.settings.delete_subaccount'),
-        ('^subaccounts/(\d+)/change_password$',
-         'freecritters.web.settings.change_subaccount_password'),
-        ('^mail$', 'freecritters.web.mail.inbox'),
-        ('^rss/mail\\.rss$', 'freecritters.web.mail.inbox_rss'),
-        ('^mail/send$', 'freecritters.web.mail.send'),
-        ('^mail/(\d+)$', 'freecritters.web.mail.conversation'),
-        ('^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
-        ('^mail/delete$', 'freecritters.web.mail.multi_delete'),
-        ('^json/pre_mail_message$',
+        (r'^$', 'freecritters.web.home.home'),
+        (r'^register$', 'freecritters.web.register.register'),
+        (r'^login$', 'freecritters.web.login.login'),
+        (r'^logout$', 'freecritters.web.logout.logout'),
+        (r'^users/(.+)$', 'freecritters.web.profile.profile'),
+        (r'^editprofile$', 'freecritters.web.settings.edit_profile'),
+        (r'^subaccounts$', 'freecritters.web.settings.subaccount_list'),
+        (r'^subaccounts/create$', 'freecritters.web.settings.create_subaccount'),
+        (r'^subaccounts/(\d+)/edit$', 'freecritters.web.settings.edit_subaccount'),
+        (r'^subaccounts/(\d+)/delete$', 'freecritters.web.settings.delete_subaccount'),
+        (r'^subaccounts/(\d+)/change_password$', 'freecritters.web.settings.change_subaccount_password'),
+        (r'^pictures/(\d+)(?:\.[a-zA-Z]+)?$', 'freecritters.web.pictures.picture'),
+        (r'^pictures/(\d+)/([A-Za-z]+)(?:\.[a-zA-Z]+)?$', 'freecritters.web.pictures.picture'),
+        (r'^mail$', 'freecritters.web.mail.inbox'),
+        (r'^rss/mail\.rss$', 'freecritters.web.mail.inbox_rss'),
+        (r'^mail/send$', 'freecritters.web.mail.send'),
+        (r'^mail/(\d+)$', 'freecritters.web.mail.conversation'),
+        (r'^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
+        (r'^mail/delete$', 'freecritters.web.mail.multi_delete'),
+        (r'^json/pre_mail_message$',
             'freecritters.web.mail.pre_mail_message_json')
     ]
     
@@ -149,19 +150,21 @@ class FreeCrittersApplication(RegexApplication):
             del ctx.current
     
     def process_http_exception(self, e):
-        from freecritters.web import templates
+        from freecritters.web import templates # This would be a recursive dependency at the top level
         if isinstance(e, AccessDenied):
             return FreeCrittersResponse(
                 templates.factory.render_string('access_denied', self.request),
-                status=e.code)
+                status=e.code
+            )
         elif isinstance(e, RSS401):
-            return FreeCrittersResponse(templates.factory.render_string('access_denied_rss', self.request),
-                                        [('Content-Type', 'application/rss+xml'),
-                                         ('WWW-Authenticate', 'Basic realm="' + self.request.config.site_name.encode('utf8') + '"')],
-                                        status=e.code)
+            return FreeCrittersResponse(
+                templates.factory.render_string('access_denied_rss', self.request),
+                [('Content-Type', 'application/rss+xml'),
+                 ('WWW-Authenticate', 'Basic realm="' + self.request.config.site_name.encode('utf8') + '"')],
+                status=e.code
+            )
         else:
-            return super(FreeCrittersApplication, self) \
-                               .process_http_exception(e)
+            return super(FreeCrittersApplication, self).process_http_exception(e)
       
 class FreeCrittersResponse(HttpResponse):
     """HttpResponse with some defaults."""
