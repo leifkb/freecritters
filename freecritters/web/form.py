@@ -6,6 +6,8 @@ This is designed similarly to Pocoo's pocoo.utils.forms, but with fewer
 features and without a dependency on Pocoo.
 """
 
+import ImageColor
+
 class ValidationError(Exception):
     """Raised by Modifiers when a value fails validation. Should contain a
     unicode string describing the error.
@@ -139,6 +141,23 @@ class RegexValidator(Modifier):
             raise ValidationError(self.message)
         return value
         
+class ColorModifier(Modifier):
+    """Modifies a color name or hex string into an (r, g, b) tuple, where
+    all values are in the range 0-255.
+    """
+    
+    def __init__(self, message=u'Not a valid color.'):
+        self.message = message
+    
+    def modify(self, value, form):
+        try:
+            return ImageColor.getrgb(value)
+        except ValueError:
+            raise ValidationError(self.message)
+    
+    def unmodify(self, value, form):
+        return u'#%02X%02X%02X' % value
+        
 class FormField(object):
     """Base class for form fields."""
     
@@ -232,6 +251,18 @@ class TextField(FormField):
         result['size'] = self.size
         result['max_length'] = self.max_length
         return result
+        
+class ColorSelector(TextField):
+    """Field for picking a color."""
+    
+    def __init__(self, name, title, description, size=None, id_=None,
+                 modifiers=None, must_be_present=True):
+        if modifiers is None:
+            modifiers = []
+        modifiers.insert(0, ColorModifier())
+        super(ColorSelector, self).__init__(
+            name, title, description, None, size, id_, modifiers, must_be_present
+        )
 
 class PasswordField(TextField):
     """Password fields (<input type="password">)."""

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from freecritters.web.form import Modifier, ValidationError
 from freecritters.model import User, Subaccount, FormToken
 from freecritters.textformats import render_html
+from sqlalchemy import Query
 
 class UsernameNotTakenValidator(Modifier):
     """Validates that a username isn't taken."""
