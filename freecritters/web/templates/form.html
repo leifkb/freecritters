@@ -1,63 +1,64 @@
-{% prepare "render_field" accepting field
-%}{%
-    capture as name %}{%
-    if not field.name equals None %}name="{{ field.name|e }}"{%
-    endif %}{% endcapture %}{%
-    if field.type equals "TextField"
-    %}<input type="text" {{ name }} {% if field.has_value %}value="{{ field.value|e }}"{% endif
-           %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif
-           %}{% if not field.max_length equals None %}maxlength="{{ field.max_length|e }}"{% endif %}>{%
-    endif %}{%
-    if field.type equals "ColorSelector"
-    %}<input type="text" class="color" {{ name }} {% if field.has_value %}value="{{ field.value|e }}"{% endif
-           %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif
-           %}{% if not field.max_length equals None %}maxlength="{{ field.max_length|e }}"{% endif %}>{%
-    endif %}{%
-    if field.type equals "PasswordField"
-    %}<input type="password" {{ name }} {% if field.has_value %}value="{{ field.value|e }}"{% endif
-           %}id="{{ field.id|e }}" {% if not field.size equals None %}size="{{ field.size|e }}"{% endif
-           %}{% if not field.max_length equals None %}maxlength="{{ field.max_length|e }}"{% endif %}>{%
-    endif %}{%
-    if field.type equals "CheckBox"
-    %}<input type="checkbox" {{ name }} {% if field.has_value %}{% if field.value %}checked="checked"{% endif %}{% endif
-           %}id="{{ field.id|e }}" value="{{ field.raw_value|e }}">{%
-    endif
-    %}{% if field.type equals "TextArea"
-    %}<textarea {{ name }} id="{{ field.id|e }}" rows="{{ field.rows|e }}" cols="{{ field.cols|e }}">{{ field.value|e }}</textarea>{%
-    endif %}{%
-    if field.type equals "SelectMenu"
-    %}<select {{ name }}>{%
-    for option in field.options
- %} <option value="{{ option.value|e }}" {% if option.value equals field.value %}selected="selected"{% endif %}>{{ option.caption|e }}</option>
-{%  endfor
-    %}</select>{%
-    endif %}{%
-    if field.type equals "HiddenField"
-    %}<input type="hidden" {{ name }} id="{{ field.id|e }}" {% if field.has_value %}value="{{ field.value|e }}"{% endif %}>{%
-    endif %}{%
-    if field.type equals "SubmitButton"
-    %}<input type="submit" {{ name }} id="{{ field.id|e }}" value="{{ field.title|e }}">{%
-    endif
-%}{% endprepare %}
+{% macro render_field field %}    
+    {%- if field.type in ("TextField", "PasswordField", "ColorSelector") -%}
+    <input type="{% if field.type == "PasswordField" %}password{% else %}text{% endif %}" {# -#}
+           name="{{ field.name|e }}" {% if field.type == "ColorSelector" %}class="color" {% endif -%}
+           {%- if field.has_value %}value="{{ field.value|e }}" {% endif -%}
+           id="{{ field.id|e }}" {% if field.size != None %}size="{{ field.size|e }}" {% endif -%}
+           {% if field.max_length != none %}maxlength="{{ field.max_length|e }}"{% endif %}>
+    {%- endif %}
+    {%- if field.type == "CheckBox" -%}
+    <input type="checkbox" name="{{ field.name|e }}" {% if field.has_value and field.value %}checked="checked" {% endif -%}
+           id="{{ field.id|e }}" value="{{ field.raw_value|e }}">
+    {%- endif %}
+    {%- if field.type == "TextArea" -%}
+    <textarea name="{{ field.name|e }}" id="{{ field.id|e }}" rows="{{ field.rows|e }}" cols="{{ field.cols|e }}">{{ field.value|e }}</textarea>
+    {%- endif %}
+    {%- if field.type == "SelectMenu" -%}
+    <select name="{{ field.name|e }}">
+    {%- for option in field.options -%}
+    <option value="{{ option.value|e }}"{% if option.value == field.value %} selected="selected"{% endif %}>
+    {{- option.caption|e -}}
+    </option>
+    {%- endfor -%}
+    </select>
+    {%- endif %}
+    {%- if field.type == "HiddenField" -%}
+    <input type="hidden" name="{{ field.name|e }}" id="{{ field.id|e }}"{% if field.has_value %} value="{{ field.value|e }}"{% endif %}>
+    {%- endif %}
+    {%- if field.type == "SubmitButton" -%}
+    <input type="submit" name="{{ field.name|e }}" id="{{ field.id|e }}" value="{{ field.title|e }}">
+    {%- endif %}
+{%- endmacro -%}
 
-{% prepare "render_form" accepting form
-%}<form action="{{ form.action|e }}" method="{{ form.method|e }}">
-{% if form.has_errors
-%}<p class="formhaserrors"><strong>Your form submission has errors. Please review and correct them.</strong></p>{%
-endif %}
+{% macro render_form_start_tag form -%}
+<form action="{{ form.action|e }}" method="{{ form.method|e }}">
+{%- endmacro -%}
+
+{% macro render_form form, fields=none -%}
+{% if fields == none -%}
+{% set fields = form.field_ids %}
+{%- endif -%}
+
+{{ render_form_start_tag(form) }}
+{% if form.has_errors -%}
+<p class="formhaserrors"><strong>Your form submission has errors. Please review and correct them.</strong></p>
+{%- endif %}
 <div class="formfields">
-{% for field in form.fields %}{% if not field.type equals "HiddenField" %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}{{ field.type|e }} formfield">{% endif %}{% if field.type equals "HiddenField" %}{% if not field.error equals None %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}formfield">{% else %}<div class="{% if loop.revcounter equals 1 %}last {% endif %}hidden formfield">{% endif %}{% endif %}{% 
-    if not field.type equals "SubmitButton" %}{%
-    if not field.type equals "HiddenField"
-    %}<div class="formfieldtitle"><label for="{{ field.id }}">{{ field.title|e }}:</label></div>{%
-    endif %}
-{%  endif
-    %}<div class="formfieldcontrol">{% call "render_field" field %}</div>
-{%    if not field.error equals None %}
-    <div class="formfielderror"><em>{{ field.error|e }}</em></div>{%
-    else %}{% if not field.description equals None
-    %}<div class="formfielddesc">{{ field.description|e }}</div>{%
-    endif %}{% endif %}<div class="formclearhack">&nbsp;</div></div>
-{% endfor
-%}</div></form>{%
-endprepare %}
+{% for field_id in fields -%}
+{% set field = form.fields[field_id] -%}
+<div class="{% if loop.revindex == 1 %}last {% endif %}{{ field.type|e }}{% if field.type == 'HiddenField' and field.error == none %} hidden{% endif %} formfield">
+{% if field.type not in ('HiddenField', 'SubmitButton') -%}
+<div class="formfieldtitle"><label for="{{ field.id }}">{{ field.title|e }}:</label></div>
+{%- endif -%}
+<div class="formfieldcontrol">{{ render_field(field) }}</div>
+{% if field.error != none -%}
+<div class="formfielderror"><em>{{ field.error|e }}</em></div>
+{% elif field.description != None -%}
+<div class="formfielddesc">{{ field.description|e }}</div>
+{%- endif %}
+<div class="formclearhack">&nbsp;</div>
+</div>
+{% endfor -%}
+</div>
+</form>
+{%- endmacro -%}

@@ -1,14 +1,14 @@
-{% extends "layout" %}
-{% marker "title" set "Reply to mail" %}
-{% block "content" %}
-{% require "form" %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title "Reply to mail" %}
+{% block content %}
 
-{% if not preview equals None %}
+{% if preview  != none %}
 <div class="preview">
 <h3 class="previewtitle">Preview</h3>
 {{ preview }}
 </div>
 {% endif %}
 
-{% call "render_form" reply_form %}
+{{ render_form(reply_form) }}
 {% endblock %}

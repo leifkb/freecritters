@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.web import templates
 from freecritters import model
 from freecritters.web.form import Form, TextField, SubmitButton, PasswordField, HiddenField
 from freecritters.web.modifiers import UserModifier, PasswordValidator, \
@@ -38,10 +37,8 @@ def login(req):
         req.login = login
         req.user = login.user
         req.subaccount = login.subaccount
-        context = {u'username': data['user'].username}
-        response = templates.factory.render('logged_in', req, context)
+        response = req.render_template('logged_in.html', username=data['user'].username)
         add_login_cookies(response, login)
         return response
     else:
-        context = {u'form': form.generate()}
-        return templates.factory.render('login_form', req, context)
+        return req.render_template('login_form.html', form=form.generate())

@@ -558,7 +558,9 @@ form_token_mapper = mapper(FormToken, form_tokens, properties={
 })
 
 user_mapper = mapper(User, users, properties={
-    'role': relation(Role, backref=backref('users'))
+    'role': relation(Role),
+    'mail_messages': relation(MailMessage, is_backref=True, cascade='all, delete-orphan'),
+    'mail_participations': relation(MailParticipant, is_backref=True, cascade='all, delete-orphan')
 })
 
 subaccount_mapper = mapper(Subaccount, subaccounts, properties={
@@ -572,9 +574,7 @@ mail_participant_mapper = mapper(MailParticipant, mail_participants, properties=
     'conversation': relation(MailConversation, lazy=False,
                              backref=backref('participants', lazy=False,
                                              cascade='all, delete-orphan')),
-    'user': relation(User, lazy=False,
-                     backref=backref('participations',
-                                     cascade='all, delete-orphan'))
+    'user': relation(User, lazy=False)
 })
 
 mail_message_mapper = mapper(MailMessage, mail_messages, properties={
@@ -582,8 +582,7 @@ mail_message_mapper = mapper(MailMessage, mail_messages, properties={
                              backref=backref('messages',
                                              cascade='all, delete-orphan',
                                              order_by=mail_messages.c.sent)),
-    'user': relation(User, backref=backref('messages',
-                                           cascade='all, delete-orphan'))
+    'user': relation(User)
 })
 
 permission_mapper = mapper(Permission, permissions, properties={
@@ -603,4 +602,6 @@ resized_picture_mapper = mapper(ResizedPicture, resized_pictures, properties={
     'image': deferred(resized_pictures.c.image)
 })
 
-role_mapper = mapper(Role, roles)
+role_mapper = mapper(Role, roles, properties={
+    'users': relation(User, is_backref=True)
+})

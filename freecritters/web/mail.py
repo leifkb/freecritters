@@ -116,18 +116,18 @@ def inbox(req):
     where_clause = MailParticipant.where_clause(req.user)
     paginator = Paginator(req, query.count(where_clause))
     context = {
-        u'conversations': _inbox_data(req, where_clause, **paginator.kwargs),
-        u'paginator': paginator,
-        u'form_token': req.form_token(),
-        u'can_send': req.has_permission('send_mail'),
-        u'can_delete': req.has_permission('delete_mail')
+        'conversations': _inbox_data(req, where_clause, **paginator.kwargs),
+        'paginator': paginator,
+        'form_token': req.form_token(),
+        'can_send': req.has_permission('send_mail'),
+        'can_delete': req.has_permission('delete_mail')
     }
-    return templates.factory.render('inbox', req, context)
+    return req.render_template('inbox.html', context)
 
 def inbox_rss(req):
     req.check_permission_rss(u'view_mail')
     return FreeCrittersResponse(
-        templates.factory.render_string('inbox_rss', req, _inbox_rss_data(req, 30)),
+        req.render_template_to_string('inbox.rss', _inbox_rss_data(req, 30)),
         [('Content-Type', 'application/rss+xml')]
     )
     
@@ -180,13 +180,13 @@ def send(req):
         else:
             preview = None
         context = {
-            u'form': form.generate(),
-            u'preview': preview
+            'form': form.generate(),
+            'preview': preview
         }
         if user is not None:
-            context[u'username'] = user.username
-            context[u'pre_mail_message'] = pre_mail_message
-        return templates.factory.render('sendmail', req, context)
+            context['username'] = user.username
+            context['pre_mail_message'] = pre_mail_message
+        return req.render_template('sendmail.html', context)
         
 class ReplyForm(Form):
     method = u'post'
@@ -286,18 +286,18 @@ def conversation(req, conversation_id):
             u'quote_jsstring': simplejson.dumps(message.message)
         })
     context = {
-        u'subject': conversation.subject,
-        u'messages': messages,
-        u'system': system,
-        u'other_participants': other_participants,
-        u'reply_form': reply_form,
-        u'reply_successful': 'reply_successful' in req.args,
-        u'delete_form': delete_form,
-        u'can_reply': req.has_permission(u'send_mail'),
-        u'expanded': simplejson.dumps(expanded),
-        u'collapsed': simplejson.dumps(collapsed)
+        'subject': conversation.subject,
+        'messages': messages,
+        'system': system,
+        'other_participants': other_participants,
+        'reply_form': reply_form,
+        'reply_successful': 'reply_successful' in req.args,
+        'delete_form': delete_form,
+        'can_reply': req.has_permission(u'send_mail'),
+        'expanded': simplejson.dumps(expanded),
+        'collapsed': simplejson.dumps(collapsed)
     }
-    return templates.factory.render('mailconversation', req, context)
+    return req.render_template('mailconversation.html', context)
 
 def reply(req, conversation_id):
     # Hooray for nearly-duplicated code!
@@ -333,7 +333,7 @@ def reply(req, conversation_id):
         u'reply_form': reply_form,
         u'preview': preview
     }
-    return templates.factory.render('mail_reply', req, context)
+    return req.render_template('mail_reply.html', context)
         
 class MultiDeleteForm(Form):
     method = u'post'
@@ -370,7 +370,4 @@ def multi_delete(req):
                 participant.delete()
         redirect(req, HttpFound, '/mail?page=%s' % values['page'])
     else:
-        context = {
-            u'form': form.generate()
-        }
-        return templates.factory.render('multi_delete', req, context)
+        return req.render_template('multi_delete.html', form=form.generate())

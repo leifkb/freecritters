@@ -1,7 +1,7 @@
-{% extends "layout" %}
-{% marker "title" set "Log out" %}
-{% block "content" %}
-{% require "form" %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title "Log out" %}
+{% block content %}
 <p>Are you sure you want to log out? (If not, just go to another page.)</p>
-{% call "render_form" form %}
+{{ render_form(form) }}
 {% endblock %}

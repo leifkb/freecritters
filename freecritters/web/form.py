@@ -466,11 +466,11 @@ class Form(object):
         result = {}
         result['method'] = self.method
         result['action'] = self.action
-        result['fields'] = []
-        result['fields_dict'] = {}
+        result['field_ids'] = []
+        result['fields'] = {}
         result['has_errors'] = bool(self.errors)
         for field in self.fields:
             field_data = field.template_context(self)
-            result['fields'].append(field_data)
-            result['fields_dict'][field.id_] = field_data
+            result['field_ids'].append(field_data['id'])
+            result['fields'][field.id_] = field_data
         return result

@@ -10,10 +10,10 @@
         <generator>freeCritters</generator>
         {% for message in messages %}
         <item>
-            <title>{{
-                message.subject|e }}{%
-                if not message.username equals None %} from {{ message.username|e
-            }}{% endif %}</title>
+            <title>
+                {{- message.subject|e -}}
+                {% if message.username != none %} from {{ message.username|e }}{% endif -%}
+            </title>
             <description>{{ message.message|e }}</description>
             <link>{{ "/mail/"|absolute_url }}{{ message.conversation_id|e }}#mailmessage{{ message.id|e }}</link>
             <pubDate>{{ message.sent|rsstimestamp|e }}</pubDate>

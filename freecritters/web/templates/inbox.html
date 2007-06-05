@@ -1,11 +1,13 @@
-{% extends "layout" %}
-{% marker "title" set "Inbox" %}
+{% extends "layout.html" %}
+{% include "paginator.html" %}
 
-{% block "head" %}
+{% block title "Inbox" %}
+
+{% block head %}
 <link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="/rss/mail.rss">
 {% endblock %}
 
-{% block "content" %}
+{% block content %}
 <p>Here's your inbox.{% if can_send %} Would you like to <a href="/mail/send">send a message</a>?{% endif %}</p>
 
 {% if not conversations %}
@@ -32,7 +34,7 @@
 {% if can_delete %}<td><input type="checkbox" name="del" value="{{ conversation.id|e }}"></td>{% endif %}
 <td class="subjectcell{% if conversation.new %} newsubjectcell{% endif %}">{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
 <td>
-{% if conversation.other_participants equals None %}
+{% if conversation.other_participants == none %}
 <em>system-generated</em>
 {% else %}
 {% for participant in conversation.other_participants %}{%
@@ -48,7 +50,6 @@ if not loop.first %}, {% endif %}<a href="{{ participant.link|e }}">{{ participa
 <p><input type="submit" value="Delete checked"></p>
 </form>
 {% endif %}
-{% require "paginator" %}
-{% call "paginator_in_box" paginator, True %}
+{{ render_paginator_in_box(paginator, True) }}
 {% endif %}
 {% endblock %}

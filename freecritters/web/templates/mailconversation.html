@@ -1,11 +1,12 @@
-{% extends "layout" %}
-{% block "title" %}Mail: {{ subject|e }}{% endblock %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title %}Mail: {{ subject|e }}{% endblock %}
 
-{% block "head" %}
+{% block head %}
 <script src="/static/mailconversation.js" type="text/javascript"></script>
 {% endblock %}
 
-{% block "content" %}
+{% block content %}
 
 <script type="text/javascript">
 var expanded = {{ expanded }};
@@ -19,25 +20,23 @@ var collapsed = {{ collapsed }};
 {% if system %}
 <p>This is a system-generated message.</p>
 {% else %}
-<p>Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|eq }}">{{ participant.username|e }}</a>{% endfor %}.</p>
+<p>Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e(true) }}">{{ participant.username|e }}</a>{% endfor %}.</p>
 {% endif %}
 
 {% if delete_form %}
-{% require "form" %}
-{% call "render_form" delete_form %}
+{{ render_form(delete_form) }}
 {% endif %}
 
 {% for message in messages %}
 <div class="mailmessage" id="mailmessage{{ message.id|e }}">
-<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|eq }}">{{ message.sender.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|eq }}); return false;">quote</a>{% endif %}</p>
+<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|e(true) }}">{{ message.sender.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|e(true) }}); return false;">quote</a>{% endif %}</p>
 <div class="mailmessagebody">{{ message.message }}</div>
 </div>
 {% endfor %}
 
 {% if reply_form %}
 <h3 id="reply">Reply</h3>
-{% require "form" %}
-{% call "render_form" reply_form %}
+{{ render_form(reply_form) }}
 {% endif %}
 
 {% endblock %}

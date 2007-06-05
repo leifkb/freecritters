@@ -6,6 +6,7 @@ from colubrid.exceptions import HttpException, AccessDenied
 from sqlalchemy import create_session, Query
 import os 
 from freecritters.model import ctx, Login, Permission, User, Role, FormToken
+from freecritters.web import templates
 from base64 import b64decode
 
 class FreeCrittersRequest(Request):
@@ -98,7 +99,51 @@ class FreeCrittersRequest(Request):
 
     def form_token_object(self):
         return FormToken.form_token_for(self.user, self.subaccount)
+        
+    def global_context(self):
+        '''Returns the global context dictionary, which is available to every
+        template.
+        '''
+        if self.user is None:
+            username = None
+            unformatted_username = None
+            user_id = None
+            subaccount_name = None
+            money = None
+            user_link = None
+            new_mail = False
+        else:
+            username = self.user.username
+            unformatted_username = self.user.unformatted_username
+            user_id = self.user.user_id
+            if self.subaccount is not None:
+                subaccount_name = req.subaccount.name
+            else:
+                subaccount_name = None
+            money = self.user.money
+            new_mail = self.has_permission('view_mail') \
+                       and self.user.has_new_mail()
             
+        return {'fc': {'site_name': self.config.site_name,
+                       'unformatted_username': unformatted_username,
+                       'user_id': user_id,
+                       'username': username,
+                       'money': money,
+                       'new_mail': new_mail,
+                       'subaccount_name': subaccount_name,
+                       'request': self}}
+    
+    def render_template_to_string(self, template, context=None, **kwargs):
+        if context is None:
+            context = {}
+        context.update(self.global_context())
+        context.update(kwargs)
+        return templates.env.get_template(template).render(context)
+    
+    def render_template(self, template, context=None, **kwargs):
+        return FreeCrittersResponse(self.render_template_to_string(template, context, **kwargs))
+                        
+
 class RSS401(HttpException):
     code = 401
         
@@ -150,15 +195,14 @@ class FreeCrittersApplication(RegexApplication):
             del ctx.current
     
     def process_http_exception(self, e):
-        from freecritters.web import templates # This would be a recursive dependency at the top level
         if isinstance(e, AccessDenied):
             return FreeCrittersResponse(
-                templates.factory.render_string('access_denied', self.request),
+                self.request.render_tempalte_to_string('access_denied'),
                 status=e.code
             )
         elif isinstance(e, RSS401):
             return FreeCrittersResponse(
-                templates.factory.render_string('access_denied_rss', self.request),
+                self.request.render_template_to_string('access_denied_rss'),
                 [('Content-Type', 'application/rss+xml'),
                  ('WWW-Authenticate', 'Basic realm="' + self.request.config.site_name.encode('utf8') + '"')],
                 status=e.code

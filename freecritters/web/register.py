@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.web import templates
 from freecritters import model
 from freecritters.web.form import Form, TextField, IntegerModifier, \
                                   RangeValidator, SubmitButton, CheckBox, \
@@ -45,10 +44,8 @@ def register(req):
         req.sess.flush()
         req.login = login
         req.user = login.user
-        context = {u'username': values['username']}
-        response = templates.factory.render('registered', req, context)
+        response = req.render_template('registered.html', username=values['username'])
         add_login_cookies(response, login)
         return response
     else:
-        context = {u'form': form.generate()}
-        return templates.factory.render('register_form', req, context)
+        return req.render_template('register_form.html', form=form.generate())

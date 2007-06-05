@@ -1,6 +1,6 @@
-{% extends "layout" %}
-{% block "title" %}{{ username|e }}'s profile{% endblock %}
-{% block "content" %}
+{% extends "layout.html" %}
+{% block title %}{{ username|e }}'s profile{% endblock %}
+{% block content %}
 <p><em>Registered {{ register_date|datetime|e }}.</em></p>
 {{ profile }}
 {% endblock %}

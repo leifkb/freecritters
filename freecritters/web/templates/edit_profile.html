@@ -1,9 +1,9 @@
-{% extends "layout" %}
-{% marker "title" set "Edit profile" %}
-{% block "content" %}
-{% require "form" %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title "Edit profile" %}
+{% block content %}
 {% if updated %}
 <p class="formsuccessful">Profile updated sucessfully.</p>
 {% endif %}
-{% call "render_form" form %}
+{{ render_form(form) }}
 {% endblock %}

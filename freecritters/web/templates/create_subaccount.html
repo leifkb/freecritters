@@ -1,6 +1,6 @@
-{% extends "layout" %}
-{% marker "title" set "Create subaccount" %}
-{% block "content" %}
-{% require "form" %}
-{% call "render_form" form %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title "Create subaccount" %}
+{% block content %}
+{{ render_form(form) }}
 {% endblock %}

@@ -22,9 +22,6 @@ def load_config():
     return Configuration.read_yaml_file(filename)
         
 def run_dev():
-    from freecritters.web import templates
-    templates.factory.use_cache = False
-    
     config = load_config()
     environ = {'freecritters.config': config}
     

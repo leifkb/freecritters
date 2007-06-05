@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.web import templates
 from freecritters.web.form import Form, HiddenField, TextArea, SelectMenu, \
                                   SubmitButton, LengthValidator, TextField, \
                                   CheckBox, PasswordField, SameAsValidator
@@ -9,6 +8,7 @@ from freecritters.web.modifiers import FormTokenValidator, HtmlModifier, \
                                        CurrentPasswordValidator
 from freecritters.model import User, Subaccount
 from freecritters.web.util import redirect
+from sqlalchemy import Query
 from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
 
 class EditProfileForm(Form):
@@ -36,17 +36,17 @@ def edit_profile(req):
     if req.user.pre_mail_message is not None:
         defaults['premailmessage'] = req.user.pre_mail_message
     form = EditProfileForm(req, defaults)
-    context = {u'form': form.generate()}
+    context = {'form': form.generate()}
     if form.was_filled and not form.errors:
         values = form.values_dict()
         req.user.profile = values[u'profile'][0]
         req.user.rendered_profile = values[u'profile'][1]
-        if values['premailmessage'].isspace() or not values['premailmessage']:
+        if values[u'premailmessage'].isspace() or not values[u'premailmessage']:
             req.user.pre_mail_message = None
         else:
             req.user.pre_mail_message = values['premailmessage']
-        context[u'updated'] = True
-    return templates.factory.render('edit_profile', req, context)
+        context['updated'] = True
+    return req.render_template('edit_profile.html', context)
 
 def subaccount_permission_fields(user):
     fields = []
@@ -72,16 +72,16 @@ def subaccount_list(req):
     subaccounts = []
     for subaccount in req.user.subaccounts:
         subaccounts.append({
-            u'id': subaccount.subaccount_id,
-            u'name': subaccount.name
+            'id': subaccount.subaccount_id,
+            'name': subaccount.name
         })
     context = {
-        u'subaccounts': subaccounts
+        'subaccounts': subaccounts
     }
-    for arg in [u'deleted', u'password_changed', u'created']:
-        if arg.encode('ascii') in req.args:
+    for arg in ['deleted', 'password_changed', 'created']:
+        if arg in req.args:
             context[arg] = True
-    return templates.factory.render('subaccount_list', req, context)
+    return req.render_template('subaccount_list.html', context)
 
 def create_subaccount(req):
     req.check_permission(None)
@@ -113,7 +113,7 @@ def create_subaccount(req):
         redirect(req, HttpFound, '/subaccounts?created=1')
     else:
         context = {u'form': form.generate()}
-        return templates.factory.render('create_subaccount', req, context)
+        return req.render_template('create_subaccount.html', context)
         
 def edit_subaccount(req, subaccount_id):
     req.check_permission(None)
@@ -133,19 +133,19 @@ def edit_subaccount(req, subaccount_id):
         fields += subaccount_permission_fields(req.user)
         fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
     
-    defaults = {u'form_token': req.form_token}
+    defaults = {u'form_token': req.form_token()}
     for permission in subaccount.permissions:
         defaults[u'perm' + unicode(permission.permission_id)] = True
     form = EditSubaccountForm(req, defaults)
     if form.was_filled and not form.errors:
         values = form.values_dict()
         subaccount.permissions = permissions_from_values(req, values)
-        context = {u'updated': True}
+        context = {'updated': True}
     else:
-        context = {u'updated': False}
-    context[u'form'] = form.generate()
-    context[u'subaccount_name'] = subaccount.name
-    return templates.factory.render('edit_subaccount', req, context)
+        context = {'updated': False}
+    context['form'] = form.generate()
+    context['subaccount_name'] = subaccount.name
+    return req.render_template('edit_subaccount.html', context)
     
 class SubaccountDeleteForm(Form):
     method = u'post'
@@ -172,7 +172,7 @@ def delete_subaccount(req, subaccount_id):
             u'form': form.generate(),
             u'name': subaccount.name
         }
-        return templates.factory.render('delete_subaccount', req, context)
+        return req.render_template('delete_subaccount.html', context)
         
 class SubaccountPasswordChangeForm(Form):
     method = u'post'
@@ -211,8 +211,7 @@ def change_subaccount_password(req, subaccount_id):
         redirect(req, HttpFound, u'/subaccounts?password_changed=1')
     else:
         context = {
-            u'form': form.generate(),
-            u'name': subaccount.name
+            'form': form.generate(),
+            'name': subaccount.name
         }
-        return templates.factory.render('change_subaccount_password',
-                                        req, context)
+        return req.render_template('change_subaccount_password.html', context)

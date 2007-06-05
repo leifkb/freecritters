@@ -1,9 +1,9 @@
-{% extends "layout" %}
-{% block "title" %}Editing subaccount: {{ subaccount_name|e }}{% endblock %}
-{% block "content" %}
-{% require "form" %}
+{% extends "layout.html" %}
+{% include "form.html" %}
+{% block title %}Editing subaccount: {{ subaccount_name|e }}{% endblock %}
+{% block content %}
 {% if updated %}
 <p class="formsuccessful">Subaccount edited successfully.</p>
 {% endif %}
-{% call "render_form" form %}
+{{ render_form(form) }}
 {% endblock %}

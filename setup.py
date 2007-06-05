@@ -17,6 +17,6 @@ setup(
     },
     include_package_data=True,
     zip_safe=False, # Sigh...
-    install_requires=['Jinja>=0.9', 'migrate>=0.2', 'SQLAlchemy>=0.3',
+    install_requires=['Jinja>=1.1', 'migrate>=0.2', 'SQLAlchemy>=0.3',
                       'PyYAML>=3.0', 'Colubrid>=0.10', 'simplejson>=1.5']
 )

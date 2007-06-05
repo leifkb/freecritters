@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.web import templates
 from freecritters import model
 from freecritters.web.form import Form, SubmitButton, HiddenField, TextField
 from freecritters.web.modifiers import FormTokenValidator
@@ -21,16 +20,15 @@ def delete_login_cookies(response):
 def logout(req):
     req.check_permission(None)
     if req.login is None: # HTTP Basic
-        return templates.factory.render('cant_log_out', req)
+        return req.render_template('cant_log_out.html')
     form = LogoutForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
         req.sess.delete(req.login)
         req.login = None
         req.user = None
         req.subaccount = None
-        response = templates.factory.render('logged_out', req)
+        response = req.render_template('logged_out.html')
         delete_login_cookies(response)
         return response
     else:
-        context = {u'form': form.generate()}
-        return templates.factory.render('logout_form', req, context)
+        return req.render_template('logout_form.html', form=form.generate())

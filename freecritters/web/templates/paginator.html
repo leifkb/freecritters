@@ -1,8 +1,8 @@
-{% prepare "paginator" accepting paginator %}
+{% macro render_paginator paginator %}
 <form action="{{ paginator.url|e }}" method="get" class="paginatorform">
 <div class="paginator">
 {% for arg in paginator.args %}
-<input type="hidden" name="{{ arg.0|e }}" value="{{ arg.1|e }}">
+<input type="hidden" name="{{ arg[0]|e }}" value="{{ arg[1]|e }}">
 {% endfor %}
 {% if paginator.first_page_link %}
 <a href="{{ paginator.first_page_link|e }}">first</a>
@@ -20,10 +20,10 @@ Page <input type="text" name="{{ paginator.query_argument|e }}" size="{{ paginat
 {% endif %}
 </div>
 </form>
-{% endprepare %}
+{% endmacro -%}
 
-{% prepare "paginator_in_box" accepting paginator, left_aligned %}
+{% macro render_paginator_in_box paginator, left_aligned %}
 <div class="paginatorcontainer{% if left_aligned %}left{% endif %}">
-{% call "paginator" paginator %}
+{{ render_paginator(paginator) }}
 </div>
-{% endprepare %}
+{% endmacro -%}
