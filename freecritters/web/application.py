@@ -16,7 +16,7 @@ class FreeCrittersRequest(Request):
                                                   charset)
         self.config = environ['freecritters.config']
         self.sess = ctx.current
-        self.sess.bind_to = self.config.db_engine
+        self.sess.bind = self.config.db_engine
         self.trans = self.sess.create_transaction()
         self._find_login()
     
@@ -170,7 +170,11 @@ class FreeCrittersApplication(RegexApplication):
         (r'^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
         (r'^mail/delete$', 'freecritters.web.mail.multi_delete'),
         (r'^json/pre_mail_message$',
-            'freecritters.web.mail.pre_mail_message_json')
+            'freecritters.web.mail.pre_mail_message_json'),
+        (r'^pets/images/(\d+)/(\d+)/([0-9A-F]{6})(?:\.[a-zA-Z]+)?$', 'freecritters.web.pets.pet_image'),
+        (r'^pets/create/(\d+)$', 'freecritters.web.pets.create_pet'),
+        (r'^pets$', 'freecritters.web.pets.pet_list'),
+        (r'^pets/create$', 'freecritters.web.pets.species_list')
     ]
     
     def __init__(self, environ, start_response,
@@ -197,12 +201,12 @@ class FreeCrittersApplication(RegexApplication):
     def process_http_exception(self, e):
         if isinstance(e, AccessDenied):
             return FreeCrittersResponse(
-                self.request.render_tempalte_to_string('access_denied'),
+                self.request.render_template_to_string('access_denied.html'),
                 status=e.code
             )
         elif isinstance(e, RSS401):
             return FreeCrittersResponse(
-                self.request.render_template_to_string('access_denied_rss'),
+                self.request.render_template_to_string('access_denied.rss'),
                 [('Content-Type', 'application/rss+xml'),
                  ('WWW-Authenticate', 'Basic realm="' + self.request.config.site_name.encode('utf8') + '"')],
                 status=e.code

@@ -1,0 +1,11 @@
+{% macro render_tabs tabs -%}
+<ul class="tabs">
+    {%- for url, name in tabs.tabs -%}
+    <li class="{% if loop.last %}last{% endif %}{% if url == tabs.active %} active{% endif %}">{# -#}
+        <a href="{{ url|e }}">
+            {{- name|e -}}
+        </a>{# -#}
+    </li>
+    {%- endfor -%}
+</ul>
+{%- endmacro %}

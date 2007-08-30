@@ -20,20 +20,20 @@
 <input type="hidden" name="page" value="{{ paginator.page_num|e }}">
 </div>
 {% endif %}
-<table>
+<table class="normal mailtable">
 <thead>
 <tr>
-{% if can_delete %}<th>Del</th>{% endif %}
-<th>Subject</th>
-<th>With</th>
+{% if can_delete %}<th class="maildelcolumn">Del</th>{% endif %}
+<th class="maildelcolumn">Subject</th>
+<th class="mailwithcolumn">With</th>
 </tr>
 </thead>
 <tbody>
 {% for conversation in conversations %}
-<tr>
-{% if can_delete %}<td><input type="checkbox" name="del" value="{{ conversation.id|e }}"></td>{% endif %}
-<td class="subjectcell{% if conversation.new %} newsubjectcell{% endif %}">{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
-<td>
+<tr{% if conversation.new %} class="newmail"{% endif %}>
+{% if can_delete %}<td class="maildelcolumn"><input type="checkbox" name="del" value="{{ conversation.id|e }}"></td>{% endif %}
+<td class="mailsubjectcolumn">{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
+<td class="mailwithcolumn">
 {% if conversation.other_participants == none %}
 <em>system-generated</em>
 {% else %}

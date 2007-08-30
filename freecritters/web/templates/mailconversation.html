@@ -1,5 +1,4 @@
 {% extends "layout.html" %}
-{% include "form.html" %}
 {% block title %}Mail: {{ subject|e }}{% endblock %}
 
 {% block head %}
@@ -20,7 +19,7 @@ var collapsed = {{ collapsed }};
 {% if system %}
 <p>This is a system-generated message.</p>
 {% else %}
-<p>Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e(true) }}">{{ participant.username|e }}</a>{% endfor %}.</p>
+<p id="conversationheader">Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e(true) }}">{{ participant.username|e }}</a>{% endfor %}.</p>
 {% endif %}
 
 {% if delete_form %}

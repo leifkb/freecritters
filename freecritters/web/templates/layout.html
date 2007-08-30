@@ -1,17 +1,19 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+{% include "form.html" -%}
+{% include "tabs.html" -%}
 <html lang="en">
     <head>
         <title>{% filter e|capture('title') %}{% block title "" %}{% endfilter %} on {{ fc.site_name|e }}</title>
         <link rel="stylesheet" media="screen,projection" type="text/css"
               href="/static/style.css">
         <script src="/static/MochiKit.js" type="text/javascript"></script>
-        <script src="/static/global.js" type="text/javascript"></script>
-        <script src="/static/colorselector.js" type="text/javascript"></script>
         <!--[if lt IE 7]>
         <script type="text/javascript">IE7_PNG_SUFFIX = "";</script>
         <script src="/static/ie7-standard-p.js" type="text/javascript"></script>
-        <script defer type="text/javascript" src="/static/pngfix.js"></script>
         <![endif]-->
+        <script type="text/javascript" src="/static/pngfix.js"></script>
+        <script src="/static/colorselector.js" type="text/javascript"></script>
+        <script src="/static/global.js" type="text/javascript"></script>
         {% block head "" %}
     </head>
     <body>
@@ -32,12 +34,15 @@
         </div>
         <ul id="nav">
             <li><a href="/">Home</a></li
-            ><li>{% if fc.new_mail %}<strong>{% endif %}<a href="/mail">Mail</a>{% if fc.new_mail %}</strong>{% endif %}</li
+           ><li>{% if fc.new_mail %}<strong>{% endif %}<a href="/mail">Mail</a>{% if fc.new_mail %}</strong>{% endif %}</li
+           ><li><a href="/pets">Pets</a></li
         ></ul>
         <div id="main">
             <h2 id="contenttitle">{{ title }}</h2>
+            {% block tabs "" %}
             <div id="content">
                 {% block content "" %}
+                <div class="clearhack">&nbsp;</div>
             </div>
         </div>
     </body>

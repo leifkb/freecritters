@@ -155,10 +155,49 @@ Index('idx_resizedpictures_pictureid_width_height',
     resized_pictures.c.width,
     resized_pictures.c.height
 )
+
+species = Table('species', metadata,
+    Column('species_id', Integer, primary_key=True),
+    Column('name', Unicode, nullable=False, index=True),
+    Column('creatable', Boolean, nullable=False)
+)
+
+appearances = Table('appearances', metadata,
+    Column('appearance_id', Integer, primary_key=True),
+    Column('name', Unicode, nullable=False),
+    Column('creatable', Boolean, nullable=False)
+)
+
+species_appearances = Table('species_appearances', metadata,
+    Column('species_appearance_id', Integer, primary_key=True),
+    Column('species_id', Integer, _foreign_key('species.species_id'), index=True, nullable=False),
+    Column('appearance_id', Integer,_foreign_key('appearances.appearance_id'), nullable=False),
+    Column('white_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
+    Column('black_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
+    UniqueConstraint('species_id', 'appearance_id')
+)
+Index('idx_speciesappearances_speciesid_appearanceid',
+    species_appearances.c.species_id,
+    species_appearances.c.appearance_id
+)
+
+pets = Table('pets', metadata,
+    Column('pet_id', Integer, primary_key=True),
+    Column('created', DateTime(timezone=False), nullable=False),
+    Column('name', Unicode, nullable=False),
+    Column('unformatted_name', Unicode, index=True, unique=True, nullable=False),
+    Column('user_id', Integer, _foreign_key('users.user_id'), index=True, nullable=False),
+    Column('species_appearance_id', Integer, ForeignKey('species_appearances.species_appearance_id'), nullable=False),
+    Column('color_red', Integer, nullable=False),
+    Column('color_green', Integer, nullable=False),
+    Column('color_blue', Integer, nullable=False)
+)
+
 tables = [
     roles, users, subaccounts, logins, form_tokens, mail_conversations,
     mail_participants, mail_messages, permissions, role_permissions,
-    subaccount_permissions, pictures, resized_pictures
+    subaccount_permissions, pictures, resized_pictures, species, appearances,
+    species_appearances, pets
 ]
 
 def upgrade():
@@ -177,7 +216,8 @@ def upgrade():
         (u'view_mail', u'View mail', u'Allows mail to be viewed.'),
         (u'send_mail', u'Send mail',
          u'Allows mail to be sent and replied to.'),
-        (u'delete_mail', u'Delete mail', u'Allows mail to be deleted.')
+        (u'delete_mail', u'Delete mail', u'Allows mail to be deleted.'),
+        (u'create_pet', u'Create pet', u'Allows pets to be created.')
     ]
     
     for label, title, description in permissions_to_add:

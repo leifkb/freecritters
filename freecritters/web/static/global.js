@@ -1,9 +1,11 @@
 function setCaretToEnd (element) {
+    var pos = element.value.length;
     if (element.createTextRange) {
-        var elval = element.value;
-        var elrng = element.createTextRange();
-        elrng.moveStart('character', elval.length);
-        elrng.select();
+        var range = element.createTextRange();
+        range.moveStart('character', pos);
+        range.select();
+    } else if (element.setSelectionRange) {
+        element.setSelectionRange(pos, pos);
     }
 }
 

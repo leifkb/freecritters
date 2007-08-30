@@ -4,7 +4,7 @@ from sqlalchemy import DynamicMetaData, Table, Column, Integer, Unicode, \
                        mapper, Binary, DateTime, func, ForeignKey, relation, \
                        backref, UniqueConstraint, Index, object_session, \
                        and_, Boolean, select, func, cast, String, \
-                       create_session, Query, deferred
+                       create_session, Query, deferred, MapperExtension
 from sqlalchemy.sql import literal
 from sqlalchemy.ext.sessioncontext import SessionContext
 from sqlalchemy.orm.mapper import global_extensions
@@ -19,12 +19,34 @@ try:
 except ImportError:
     from freecritters import _uuid as uuid
 import Image
-from cStringIO import StringIO
+from StringIO import StringIO
 
 def _foreign_key(name):
     """Shortcut for a cascaded foreign key."""
     
     return ForeignKey(name, onupdate='CASCADE', ondelete='CASCADE')
+
+class FieldCopierExtension(MapperExtension):
+    def __init__(self, columns=None, **kwargs):
+        if columns is not None:
+            kwargs.update(columns)
+        self.columns = kwargs
+        
+    def after_insert(self, mapper, connection, instance):
+        clause = and_(*[
+            col==value
+            for col, value
+            in zip(mapper.primary_key, mapper.primary_key_from_instance(instance))
+        ])
+        values = {}
+        for col1, cols in self.columns.iteritems():
+            if getattr(instance, col1) is None:
+                value = getattr(instance, col2)
+                setattr(instance, col1, value)
+                values[col1] = col2
+        if values:
+            connection.execute(mapper.mapped_table.update(clause, values=values))
+        return EXT_PASS
 
 ctx = SessionContext(create_session)
 global_extensions.append(ctx.mapper_extension)
@@ -149,9 +171,6 @@ subaccount_permissions = Table('subaccount_permissions', metadata,
            primary_key=True)
 )
 
-#forums = Table('forums', metadata,
-#    Column('forum_id', Integer, primary_key=True),
-
 pictures = Table('pictures', metadata,
     Column('picture_id', Integer, primary_key=True),
     Column('added', DateTime(timezone=False), nullable=False),
@@ -177,6 +196,101 @@ Index('idx_resizedpictures_pictureid_width_height',
     resized_pictures.c.picture_id,
     resized_pictures.c.width,
     resized_pictures.c.height
+)
+
+species = Table('species', metadata,
+    Column('species_id', Integer, primary_key=True),
+    Column('name', Unicode, nullable=False, index=True),
+    Column('creatable', Boolean, nullable=False)
+)
+
+appearances = Table('appearances', metadata,
+    Column('appearance_id', Integer, primary_key=True),
+    Column('name', Unicode, nullable=False),
+    Column('creatable', Boolean, nullable=False)
+)
+
+species_appearances = Table('species_appearances', metadata,
+    Column('species_appearance_id', Integer, primary_key=True),
+    Column('species_id', Integer, _foreign_key('species.species_id'), index=True, nullable=False),
+    Column('appearance_id', Integer,_foreign_key('appearances.appearance_id'), nullable=False),
+    Column('white_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
+    Column('black_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
+    UniqueConstraint('species_id', 'appearance_id')
+)
+Index('idx_speciesappearances_speciesid_appearanceid',
+    species_appearances.c.species_id,
+    species_appearances.c.appearance_id
+)
+
+pets = Table('pets', metadata,
+    Column('pet_id', Integer, primary_key=True),
+    Column('created', DateTime(timezone=False), nullable=False),
+    Column('name', Unicode, nullable=False),
+    Column('unformatted_name', Unicode, index=True, unique=True, nullable=False),
+    Column('user_id', Integer, _foreign_key('users.user_id'), index=True, nullable=False),
+    Column('species_appearance_id', Integer, ForeignKey('species_appearances.species_appearance_id'), nullable=False),
+    Column('color_red', Integer, nullable=False),
+    Column('color_green', Integer, nullable=False),
+    Column('color_blue', Integer, nullable=False)
+)
+
+groups = Table('groups', metadata,
+    Column('group_id', Integer, primary_key=True),
+    Column('type', Integer, index=True, nullable=False),
+    Column('name', Unicode(128), index=True, nullable=False),
+    Column('description', Unicode, nullable=False),
+    Column('owner_user_id', Integer, _foreign_key('users.user_id'), index=True, nullable=False),
+    Column('member_count', Integer, index=True, nullable=False),
+    Column('default_role_id', Integer, _foreign_key('group_roles.group_role_id'), nullable=False)
+)
+
+standard_group_permissions = Table('standard_group_permissions', metadata,
+    Column('standard_group_permission_id', Integer, primary_key=True),
+    Column('label', Unicode(32), unique=True, nullable=False),
+    Column('title', Unicode(128), nullable=False),
+    Column('description', Unicode, nullable=False)
+)
+
+special_group_permissions = Table('special_group_permissions', metadata,
+    Column('special_group_permission_id', Integer, primary_key=True),
+    Column('group', Integer, _foreign_key('groups.group_id'), index=True, nullable=False),
+    Column('title', Unicode(128), nullable=False)
+)
+
+group_roles = Table('group_roles', metadata,
+    Column('group_role_id', Integer, primary_key=True),
+    Column('group', Integer, _foreign_key('groups.group_id'), index=True, nullable=False),
+    Column('name', Unicode(128), nullable=False)
+)
+
+group_role_standard_permissions = Table('group_role_standard_permissions', metadata,
+    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), primary_key=True),
+    Column('standard_group_permission_id', Integer, _foreign_key('standard_group_permissions.standard_group_permission_id'), primary_key=True)
+)
+
+group_role_special_permissions= Table('group_role_special_permissions', metadata,
+    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), primary_key=True),
+    Column('special_group_permission_id', Integer, _foreign_key('special_group_permissions.special_group_permission_id'), primary_key=True)
+)
+
+group_members = Table('group_members', metadata,
+    Column('group_member_id', Integer, primary_key=True),
+    Column('user_id', Integer, _foreign_key('users.user_id'), nullable=False),
+    Column('group_id', Integer, _foreign_key('groups.group_id'), nullable=False),
+    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), nullable=False),
+    UniqueConstraint('user_id', 'group_id')
+)
+
+forums = Table('forums', metadata,
+    Column('forum_id', Integer, primary_key=True),
+    Column('group_id', Integer, _foreign_key('groups.group_id')),
+    Column('name', Unicode(128), nullable=False),
+    Column('order_num', Integer, nullable=False)
+)
+Index('idx_forums_groupid_ordernum',
+    forums.c.group_id,
+    forums.c.order_num
 )
 
 class PasswordHolder(object):
@@ -514,8 +628,10 @@ class Picture(object):
         picture = Query(ResizedPicture).get_by(picture_id=self.picture_id,
                                                width=width, height=height)
         if picture is not None:
+            picture.last_used = datetime.utcnow()
             return picture
         picture = ResizedPicture(self, width, height)
+        picture.last_used = datetime.utcnow()
         ctx.current.flush()
         return picture
 
@@ -544,7 +660,195 @@ class ResizedPicture(object):
     def pil_image(self):
         data = StringIO(self.image)
         return Image.open(data)
+
+class Species(object):
+    def __init__(self, name, creatable=True):
+        self.name = name
+        self.creatable = creatable
+    
+    def species_appearance(self, appearance, required=False):
+        result = Query(SpeciesAppearance).get_by(
+            species_id=self.species_id, appearance_id=appearance.appearance_id
+        )
+        if required and result is None:
+            raise ValueError("Species %s is not available with appearance %s." % (species.name, appearance.name))
+        return result
+    
+    @property
+    def can_be_created(self):
+        if not self.creatable:
+            return False
+        for species_appearance in self.appearances:
+            if species_appearance.appearance.creatable:
+                return True
+        return False
+    
+    @classmethod
+    def find_creatable(cls):
+        return Query(cls).filter(and_(
+            species.c.creatable==True,
+            species_appearances.c.species_id==species.c.species_id,
+            species_appearances.c.appearance_id==appearances.c.appearance_id,
+            appearances.c.creatable==True,
+            func.count(species_appearances.c.species_appearance_id) > 0,
+        )).group_by([c for c in species.c])
         
+class Appearance(object):
+    def __init__(self, name, creatable=True):
+        self.name = name
+        self.creatable = creatable
+
+class SpeciesAppearance(object):
+    def __init__(self, species, appearance, white_picture, black_picture):
+        self.species = species
+        self.appearance = appearance
+        self.white_picture = white_picture
+        self.black_picture = black_picture
+    
+    def pil_image_with_color(self, color):
+        black_image = self.black_picture.pil_image
+        white_image = self.white_picture.pil_image
+        if black_image.mode not in ('RGB', 'RGBA'):
+            if white_image.mode == 'RGBA':
+                black_image = black_image.convert('RGBA')
+            else:
+                black_image = black_image.convert('RGB')
+        if white_image.mode not in ('RGB', 'RGBA'):
+            if black_image.mode == 'RGBA':
+                white_image = white_image.convert('RGBA')
+            else:
+                white_image = white_image.convert('RGB')
+        if white_image.size != black_image.size:
+            white_image = white_image.resize(black_image.size)
+        color = [value / 255.0 for value in color]
+        if len(color) == 3: # RGB; we want RGBA
+            color.append(0.0)
+        white_bands = white_image.split()
+        black_bands = black_image.split()
+        bands = [Image.blend(black_band, white_band, value)
+                 for black_band, white_band, value
+                     in zip(black_bands, white_bands, color)]
+        return Image.merge(white_image.mode, bands)
+        
+class Pet(object):
+    name_length = 20
+    name_regex = re.compile(
+        ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % name_length)
+    
+    def __init__(self, name, user, species, appearance, color):
+        self.created = datetime.utcnow()
+        self.change_name(name)
+        self.user = user
+        self.species_appearance = species.species_appearance(appearance, True)
+        self.color = color
+    
+    _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
+    @classmethod
+    def unformat_name(self, name):
+        """Removes formatting from a name."""
+        name = self._unformat_name_regex.sub(u'', name)
+        name = name.lower()
+        return name
+    
+    def change_name(self, name):
+        self.name = name
+        self.unformatted_name = self.unformat_name(name)
+    
+    @classmethod
+    def find_pet(cls, name):
+        """Finds a pet by name or (stringified) pet ID. Returns None if
+        the user doesn't exist.
+        """
+        if name.isdigit():
+            return Query(cls).get(int(name))
+        else:
+            name = cls.unformat_name(name)
+            return Query(cls).get_by_unformatted_name(name)
+    
+    def _set_color(self, color):
+        self.color_red, self.color_green, self.color_blue = color
+    
+    def _get_color(self):
+        return self.color_red, self.color_green, self.color_blue
+    
+    color = property(_get_color, _set_color)
+    
+    def _set_species(self, species):
+        self.species_appearance = species.species_appearance(self.appearance)
+    
+    def _get_species(self):
+        return self.species_appearance.species
+    
+    species = property(_get_species, _set_species)
+    
+    def _set_appearance(self, appearance):
+        self.species_appearance = self.species.species_appearance(appearance)
+    
+    def _get_appearance(self):
+        return self.species_appearance.appearance
+    
+    appearance = property(_get_appearance, _set_appearance)
+
+class Group(object):
+    types_names = [u'Club', u'Guild', u'Cult']
+    
+    def __init__(self, type, name, description, owner):
+        self.type = type
+        self.name = name
+        self.description = description
+        self.owner = owner
+        self.default_role = GroupRole(self, u'Member')
+        admin_role = GroupRole(self, u'Administrator')
+        GroupMember(self, owner, admin_role)
+    
+    @classmethod
+    def types_can_coexist(cls, type1, type2):
+        if type1 > type2:
+            type1, type2 = type2, type1
+        if type2 == 2:
+            return False
+        if type1 == type2 == 1:
+            return False
+        return True
+    
+    def can_coexist_with(self, other_type):
+        return self.types_can_coexist(self.type, other_type)
+    
+    @property
+    def type_name(self):
+        return self.type_names[self.type]
+
+class StandardGroupPermission(object):
+    def __init__(self, label, title, description):
+        self.label = label
+        self.title = title
+        self.description = description
+    
+    @classmethod
+    def find_label(cls, label, allow_none=False):
+        result = Query(cls).get_by_label(label)
+        if not allow_none:
+            assert result is not None, \
+                'Group permission labelled %r not found.' % label
+        return result
+
+class SpecialGroupPermission(object):
+    def __init__(self, group, title):
+        self.group = group
+        self.title = title
+
+class GroupRole(object):
+    def __init__(self, group, name):
+        self.group = group
+        self.name = name
+
+class GroupMember(object):
+    def __init__(self, user, group, group_role):
+        assert group_role.group == group
+        self.user = user
+        self.group = group
+        self.group_role = group_role
+
 login_mapper = mapper(Login, logins, properties={
     'user': relation(User, backref=backref('logins',
                                            cascade='all, delete-orphan')),
@@ -558,9 +862,7 @@ form_token_mapper = mapper(FormToken, form_tokens, properties={
 })
 
 user_mapper = mapper(User, users, properties={
-    'role': relation(Role),
-    'mail_messages': relation(MailMessage, is_backref=True, cascade='all, delete-orphan'),
-    'mail_participations': relation(MailParticipant, is_backref=True, cascade='all, delete-orphan')
+    'role': relation(Role)
 })
 
 subaccount_mapper = mapper(Subaccount, subaccounts, properties={
@@ -574,7 +876,7 @@ mail_participant_mapper = mapper(MailParticipant, mail_participants, properties=
     'conversation': relation(MailConversation, lazy=False,
                              backref=backref('participants', lazy=False,
                                              cascade='all, delete-orphan')),
-    'user': relation(User, lazy=False)
+    'user': relation(User, lazy=False, backref=backref('_mail_participations', lazy=None, cascade='delete-orphan', passive_deletes=True))
 })
 
 mail_message_mapper = mapper(MailMessage, mail_messages, properties={
@@ -582,7 +884,7 @@ mail_message_mapper = mapper(MailMessage, mail_messages, properties={
                              backref=backref('messages',
                                              cascade='all, delete-orphan',
                                              order_by=mail_messages.c.sent)),
-    'user': relation(User)
+    'user': relation(User, backref=backref('_mail_messages', lazy=None, cascade='delete-orphan', passive_deletes=True))
 })
 
 permission_mapper = mapper(Permission, permissions, properties={
@@ -602,6 +904,24 @@ resized_picture_mapper = mapper(ResizedPicture, resized_pictures, properties={
     'image': deferred(resized_pictures.c.image)
 })
 
-role_mapper = mapper(Role, roles, properties={
-    'users': relation(User, is_backref=True)
+role_mapper = mapper(Role, roles)
+
+species_mapper = mapper(Species, species)
+
+appearances_mapper = mapper(Appearance, appearances)
+
+species_appearances_mapper = mapper(SpeciesAppearance, species_appearances, properties={
+    'species': relation(Species, backref=backref('appearances', cascade='all, delete-orphan'), lazy=False),
+    'appearance': relation(Appearance, backref=backref('species', cascade='all, delete-orphan'), lazy=False),
+    'white_picture': relation(Picture, primaryjoin=pictures.c.picture_id==species_appearances.c.white_picture_id),
+    'black_picture': relation(Picture, primaryjoin=pictures.c.picture_id==species_appearances.c.black_picture_id)
+})
+
+pets_mapper = mapper(Pet, pets, properties={
+    'user': relation(User, lazy=False, backref=backref('pets', cascade='all, delete-orphan')),
+    'species_appearance': relation(SpeciesAppearance, lazy=False)
+})
+group_mapper = mapper(Group, groups, properties={
+    'owner': relation(User, backref=backref('owned_groups', cascade='all, delete-orphan')),
+    'default_role': relation(Role, backref=backref
 })

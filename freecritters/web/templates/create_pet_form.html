@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% include "pet_tabs.html" %}
+{{ pet_tabs.activate("/pets/create") }}
+{% block title %}Creating a {{ species_name }}{% endblock %}
+{% block head -%}
+<script type="text/javascript">
+var species_id = {{ species_id }};
+var initial_appearance_id = {{ initial_appearance_id }};
+</script>
+<script src="/static/pet_create.js" type="text/javascript"></script>
+{%- endblock %}
+{% block tabs render_tabs(pet_tabs) %}
+{% block content %}
+{{ render_form_header(form) }}
+<div id="petpreview">
+<div><img src="{{ image|e }}" alt="" id="petpreviewimg"></div>
+<div>{{ render_form_field(form.fields['preview']) }}</div> 
+</div>
+{{ render_form_fields(form, ['form_token', 'pet_name', 'color', 'submit']) }}
+</form>
+{% endblock %}

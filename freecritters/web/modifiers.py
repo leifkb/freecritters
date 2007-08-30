@@ -4,7 +4,7 @@
 
 from datetime import datetime, timedelta
 from freecritters.web.form import Modifier, ValidationError
-from freecritters.model import User, Subaccount, FormToken
+from freecritters.model import User, Subaccount, FormToken, Pet, Appearance
 from freecritters.textformats import render_html
 from sqlalchemy import Query
 
@@ -16,6 +16,17 @@ class UsernameNotTakenValidator(Modifier):
     
     def modify(self, value, form):
         if User.find_user(value) is not None:
+            raise ValidationError(self.message)
+        return value
+        
+class PetNameNotTakenValidator(Modifier):
+    """Validates that a pet name isn't taken."""
+
+    def __init__(self, message=u'That name is taken.'):
+        self.message = message
+
+    def modify(self, value, form):
+        if Pet.find_pet(value) is not None:
             raise ValidationError(self.message)
         return value
 
@@ -33,6 +44,24 @@ class UserModifier(Modifier):
     
     def unmodify(self, value, form):
         return value.username
+
+class AppearanceModifier(Modifier):
+    """Turns an appearance ID into an appearance object."""
+    def __init__(self, message=u"That appearance doesn't exist."):
+        self.message = message
+    
+    def modify(self, value, form):
+        try:
+            value = int(value)
+        except ValueError:
+            raise ValidationError(self.message)
+        appearance = Query(Appearance).get(value)
+        if appearance is None:
+            raise ValidationError(self.message)
+        return appearance
+    
+    def unmodify(self, value, form):
+        return unicode(value.appearance_id)
 
 class SubaccountModifier(Modifier):
     """Turns a subaccount name into a Subaccount object."""

@@ -37,4 +37,7 @@ addLoadEvent(function() {
         addElementClass(findMessageContainer(expanded[i]), 'expanded');
         addToggliness(expanded[i]);
     }
+    if (collapsed.length > 0) {
+        $('conversationheader').innerHTML += " You can click on collapsed messages' headers to expand them.";
+    }
 });

@@ -28,7 +28,7 @@ body {
     margin-left: 0;
     padding: 0.5em;
 }
-#header .clearhack {
+.clearhack {
     clear: both;
     height: 0;
     width: 0;
@@ -46,9 +46,12 @@ body {
 #logininfo {
     float: right;
 }
-a {
+a:link, a:visited {
     color: #4182ff;
     background: transparent;
+}
+a:hover {
+    color: #749ded;
 }
 #nav {
     margin: 0;
@@ -115,25 +118,49 @@ a {
     border: 3px solid red;
     padding: 0.25em;
 }
-table {
-    border: 2px groove #7F7F7F;
+table.normal {
+    border: 1px solid #CCC;
     border-collapse: collapse;
 }
-th {
+table.normal th {
     background: #CAD6F9;
     color: black;
-    text-align: center;
+    text-align: left;
     font-weight: bold;
-    padding: 0.1em;
+    padding: 0.25em 0.5em;
     margin: 0;
-    border: 2px ridge #7F7F7F;
+    border-top: 1px solid #CCC;
+    border-bottom: 1px solid #CCC;
+    border-left: 0 none;
+    border-right: 0 none;
 }
-td {
+table.normal td {
     background: white;
     color: black;
-    padding: 0.1em;
     margin: 0;
-    border: 2px ridge #7F7F7F;
+    padding: 0.25em 0.5em;
+    border-top: 1px solid #CCC;
+    border-bottom: 1px solid #CCC;
+    border-left: 0 none;
+    border-right: 0 none;
+}
+.maildelcolumn {
+    text-align: center;
+}
+.mailsubjectcolumn {
+    min-width: 20em;
+    border: 1px solid red;
+}
+td.mailsubjectcolumn {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+.mailsubjectcolumn a {
+    display: block;
+    padding: 0.25em 0;
+}
+.newmail .mailsubjectcolumn {
+    font-weight: bold;
 }
 .formfield textarea {
     width: 96%;
@@ -198,25 +225,6 @@ td {
 .paginatorcontainer {
     margin: 1em auto;
 }
-.subjectcell {
-    padding: 0;
-}
-.subjectcell a {
-    display: block;
-    padding: 0.1em;
-}
-.subjectcell a:hover {
-    background: #EEE;
-    color: #4182ff;
-}
-.newsubjectcell a:hover {
-    background: #CCC;
-    color: #4182ff;
-}
-.newsubjectcell  {
-    background: #DDD;
-    color: black;
-}
 .paginatorform {
     margin: 0;
     padding: 0;
@@ -260,4 +268,78 @@ li > p:first-child {
     width: 0;
     font-size: 0.1px;
     line-height: 0.01;
+}
+#petpreview {
+    background: white;
+    text-align: center;
+    float: right;
+}
+.petlist {
+    padding: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border-collapse: collapse;
+}
+.petlist td {
+    vertical-align: top;
+    padding: 0.5em 0;
+    margin: 0;
+    border-bottom: 1px solid #CCC;
+}
+.petlist tr {
+    padding: 0;
+    margin: 0;
+}
+.petlist tr.last {
+    border-bottom: 0 none;
+}
+.petlist tr.last td {
+    border-bottom: 0 none;
+    padding-bottom: 0;
+}
+.petlist_petimage {
+    width: 1px;
+}
+.petlist_petimage img {
+    display: block;
+}
+.petlist_petinfo {
+    padding-left: 0.5em !important;
+}
+.petlist_petinfo h3 {
+    font-size: 1.5em;
+    padding: 0;
+    margin: 0 0 0.5em 0;
+}
+.tabs {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+}
+.tabs li {
+    line-height: 1;
+    display: inline;
+    padding: 0;
+    margin: 0;
+}
+.tabs li a {
+    padding: 0 0.5em;
+    background: white;
+    color: black;
+    text-decoration: none;
+    border: 1px solid #CCC;
+    border-right: 0 none;
+}
+.tabs li a:hover {
+    background: #EEE;
+}
+.tabs li.active {
+    font-weight: bold;
+}
+.tabs li.last a {
+    border-right: 1px solid #CCC;
+}
+img {
+    border: 0 none;
 }

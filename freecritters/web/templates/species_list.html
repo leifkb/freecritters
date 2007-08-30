@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% include "pet_tabs.html" %}
+{% block title "Creating a pet" %}
+{{ pet_tabs.activate("/pets/create") }}
+{% block tabs render_tabs(pet_tabs) %}
+{% block content %}
+<p>Please choose a species:</p>
+<table class="petlist">
+    {% for species in species -%}
+    <tr class="{% if loop.last %}last{% endif %}">
+        <td class="petlist_petimage"><a href="{{ species.link|e }}"><img src="{{ species.image|e }}" alt=""></a></td>
+        <td class="petlist_petinfo">
+            <h3><a href="{{ species.link|e }}">{{ species.name|e }}</a></h3>
+        </td>
+    </tr>
+    {% endfor -%}
+</table>
+{% endblock %}

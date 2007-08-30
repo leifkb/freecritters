@@ -255,7 +255,7 @@ class TextField(FormField):
 class ColorSelector(TextField):
     """Field for picking a color."""
     
-    def __init__(self, name, title, description, size=None, id_=None,
+    def __init__(self, name, title, description=u'', size=None, id_=None,
                  modifiers=None, must_be_present=True):
         if modifiers is None:
             modifiers = []

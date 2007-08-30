@@ -6,26 +6,6 @@ var SAT_VAL_SQUARE_LOCATION = '/static/satvalsquare.png';
 var arVersion = navigator.appVersion.split("MSIE");
 var version = parseFloat(arVersion[1]);
 
-function fixPNG(myImage) {
-    if ((version >= 5.5) && (version < 7) && (document.body.filters)) 
-    {
-        var node = document.createElement('span');
-        node.id = myImage.id;
-        node.className = myImage.className;
-        node.title = myImage.title;
-        node.style.cssText = myImage.style.cssText;
-        node.style.setAttribute('filter', "progid:DXImageTransform.Microsoft.AlphaImageLoader"
-                                        + "(src=\'" + myImage.src + "\', sizingMethod='scale')");
-        node.style.fontSize = '0';
-        node.style.width = myImage.width.toString() + 'px';
-        node.style.height = myImage.height.toString() + 'px';
-        node.style.display = 'inline-block';
-        return node;
-    } else {
-        return myImage.cloneNode(false);
-    }
-}
-
 function trackDrag(node) {
     var lastCoords = null;
     var result = {};
@@ -133,14 +113,14 @@ function makeColorSelector(inputBox) {
     satValDiv.style.height = '200px';
     var newSatValImg = fixPNG(satValImg);
     satValDiv.appendChild(newSatValImg);
-    var crossHairs = crossHairsImg.cloneNode(false);
+    var crossHairs = fixPNG(crossHairsImg);
     satValDiv.appendChild(crossHairs);
     connect(trackDrag(satValDiv), 'drag', function(coords) {
         hsv.s = 1-(coords.y/199);
         hsv.v = coords.x/199;
         color = Color.fromHSV(hsv);
         artificialColorChange = true;
-        signal(inputBox, 'onchange');
+        fireNativeEvent(inputBox, 'onchange');
     });
     colorSelectorDiv.appendChild(satValDiv);
     
@@ -157,7 +137,7 @@ function makeColorSelector(inputBox) {
         hsv.h = coords.y/199;
         color = Color.fromHSV(hsv);
         artificialColorChange = true;
-        signal(inputBox, 'onchange');
+        fireNativeEvent(inputBox, 'onchange');
     });
     colorSelectorDiv.appendChild(hueDiv);
     
@@ -182,8 +162,8 @@ function makeColorSelector(inputBox) {
             hsv = color.asHSV();
         }
         artificialColorChange = false;
-        crossHairs.style.left = ((hsv.v*199)-10).toString() + 'px';
-        crossHairs.style.top = (((1-hsv.s)*199)-10).toString() + 'px';
+        crossHairs.style.left = Math.round(((hsv.v*199)-10).toString()) + 'px';
+        crossHairs.style.top = Math.round((((1-hsv.s)*199)-10).toString()) + 'px';
         huePos.style.top = ((hsv.h*199)-5).toString() + 'px';
         inputBox.value = color.toHexString().toUpperCase();
         previewDiv.style.backgroundColor = color.toHexString();

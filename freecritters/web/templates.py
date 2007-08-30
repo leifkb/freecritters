@@ -3,6 +3,7 @@
 from jinja import Environment, PackageLoader
 from jinja.filters import stringfilter, simplefilter
 from freecritters.web.util import absolute_url
+from freecritters.web.tabs import Tabs
 from datetime import datetime
 
 env = Environment(loader=PackageLoader('freecritters', 'web/templates'))
@@ -34,3 +35,5 @@ env.filters['absolute_url'] = do_absolute_url
 def do_rsstimestamp(ts):
     return ts.strftime('%a, %d %B %Y %H:%M:%S GMT')
 env.filters['rsstimestamp'] = do_rsstimestamp
+
+env.globals['Tabs'] = Tabs
