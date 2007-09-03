@@ -32,8 +32,7 @@ def login(req):
     form = LoginForm(req)
     if form.was_filled and not form.errors:
         data = form.values_dict()
-        login = model.Login(data['user'], data['subaccount'])
-        req.sess.flush()
+        login = model.Login(data['user'], data['subaccount']).save()
         req.login = login
         req.user = login.user
         req.subaccount = login.subaccount

@@ -26,7 +26,6 @@ def run_dev():
     environ = {'freecritters.config': config}
     
     from colubrid import execute
-    from freecritters.model import metadata
 
     execute(EnvironAdderMiddleware(app, environ), reload=True,
             hostname=config.http_hostname, port=config.http_port)

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import Query, undefer
 from freecritters.model import ctx, Picture
 from freecritters.web.application import FreeCrittersResponse
 from colubrid.exceptions import PageNotFound, AccessDenied
@@ -10,18 +9,13 @@ sizes = {
     'thumb': (120, 120)
 }
 
-def picture(req, picture_id, size='full'):
-    try:
-        picture_id = int(picture_id)
-    except ValueError:
-        raise PageNotFound()
-        
+def picture(req, picture_id, size='full'):  
     try:
         size = sizes[size]
     except KeyError:
         raise PageNotFound()
         
-    picture = Query(Picture).options(undefer('image')).get(picture_id)
+    picture = Picture.get(int(picture_id))
     if picture is None:
         raise PageNotFound()
         

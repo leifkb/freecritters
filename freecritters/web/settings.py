@@ -6,9 +6,9 @@ from freecritters.web.form import Form, HiddenField, TextArea, SelectMenu, \
 from freecritters.web.modifiers import FormTokenValidator, HtmlModifier, \
                                        SubaccountNameNotTakenValidator, \
                                        CurrentPasswordValidator
-from freecritters.model import User, Subaccount
+from freecritters.model import User, Subaccount, Permission, \
+                               SubaccountPermission
 from freecritters.web.util import redirect
-from sqlalchemy import Query
 from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
 
 class EditProfileForm(Form):
@@ -58,12 +58,15 @@ def subaccount_permission_fields(user):
         ))
     return fields
 
-def permissions_from_values(req, values):
-    permissions = []
-    for permission in req.user.role.permissions:
-        if values[u'perm' + unicode(permission.permission_id)]:
-            permissions.append(permission)
-    return permissions
+def permission_ids_from_values(values):
+    for key, value in values.iteritems():
+        if key.startswith(u'perm'):
+            try:
+                perm_id = int(key[4:])
+            except ValueError:
+                continue
+            if value:
+                yield perm_id
     
 def subaccount_list(req):
     req.check_permission(None)
@@ -108,8 +111,9 @@ def create_subaccount(req):
     if form.was_filled and not form.errors:
         values = form.values_dict()
         subaccount = Subaccount(req.user, values['name'],
-                                values['password'])
-        subaccount.permissions = permissions_from_values(req, values)
+                                values['password']).save()
+        for permission_id in permission_ids_from_values(values):
+            subaccount.permissions.add(Permission.get(permission_id))
         redirect(req, HttpFound, '/subaccounts?created=1')
     else:
         context = {u'form': form.generate()}
@@ -119,7 +123,7 @@ def edit_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
         raise AccessDenied()
-    subaccount = Query(Subaccount).get(subaccount_id)
+    subaccount = Subaccount.get(int(subaccount_id))
     if subaccount is None:
         raise PageNotFound()
         
@@ -136,10 +140,18 @@ def edit_subaccount(req, subaccount_id):
     defaults = {u'form_token': req.form_token()}
     for permission in subaccount.permissions:
         defaults[u'perm' + unicode(permission.permission_id)] = True
+        
     form = EditSubaccountForm(req, defaults)
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        subaccount.permissions = permissions_from_values(req, values)
+        current_ids = set(subaccount.permissions.values(SubaccountPermission.permission_id))
+        selected_ids = set(permission_ids_from_values(values))
+        deleted = current_ids - selected_ids
+        added = selected_ids - current_ids
+        for deleted_id in deleted:
+            subaccount.permissions.remove(Permission.get(deleted_id))
+        for added_id in added:
+            subaccount.permissions.add(Permission.get(added_id))
         context = {'updated': True}
     else:
         context = {'updated': False}
@@ -158,14 +170,14 @@ def delete_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
         raise AccessDenied()
-    subaccount = Query(Subaccount).get(subaccount_id)
+    subaccount = Subaccount.get(int(subaccount_id))
     if subaccount is None:
         raise PageNotFound()
         
     form = SubaccountDeleteForm(req, {u'form_token': req.form_token()})
     form.action = '/subaccounts/%s/delete' % subaccount.subaccount_id
     if form.was_filled and not form.errors:
-        req.sess.delete(subaccount)
+        subaccount.delete()
         redirect(req, HttpFound, '/subaccounts?deleted=1')
     else:
         context = {
@@ -194,7 +206,7 @@ def change_subaccount_password(req, subaccount_id):
     if req.subaccount is not None:
         raise AccessDenied()
         
-    subaccount = Query(Subaccount).get(subaccount_id)
+    subaccount = Subaccount.get(int(subaccount_id))
     if subaccount is None:
         raise PageNotFound()
     

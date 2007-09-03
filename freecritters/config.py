@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import create_engine
+from storm.locals import create_database
 import yaml
-from freecritters.model import metadata
 
 class Configuration(object):
     """freeCritters configuration."""
@@ -12,8 +11,10 @@ class Configuration(object):
                        db_echo=False):
         self.db_url = db_url
         self.site_name = site_name
-        self.db_engine = create_engine(db_url, echo=db_echo)
-        metadata.connect(self.db_engine)
+        self.db = create_database(db_url)
+        if db_echo:
+            from storm import database
+            database.DEBUG = True
         self.http_hostname = http_hostname
         self.http_port = http_port
     

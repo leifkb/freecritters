@@ -3,7 +3,7 @@
 from colubrid import RegexApplication, HttpResponse, Request
 from colubrid.server import StaticExports
 from colubrid.exceptions import HttpException, AccessDenied
-from sqlalchemy import create_session, Query
+from storm.locals import Store
 import os 
 from freecritters.model import ctx, Login, Permission, User, Role, FormToken
 from freecritters.web import templates
@@ -15,9 +15,8 @@ class FreeCrittersRequest(Request):
         super(FreeCrittersRequest, self).__init__(environ, start_response,
                                                   charset)
         self.config = environ['freecritters.config']
-        self.sess = ctx.current
-        self.sess.bind = self.config.db_engine
-        self.trans = self.sess.create_transaction()
+        ctx.store = Store(self.config.db)
+        self.store = ctx.store
         self._find_login()
     
     def _find_login(self):
@@ -29,7 +28,7 @@ class FreeCrittersRequest(Request):
                 login_id = int(self.cookies['login_id'].value)
             except ValueError:
                 return
-            login = Query(Login).get(login_id)
+            login = Login.get(login_id)
             if login is None:
                 return
             if login.code == self.cookies['login_code'].value.decode('ascii'):
@@ -53,7 +52,7 @@ class FreeCrittersRequest(Request):
             if user is None:
                 return
             if subaccount_name is not None:
-                subaccount = Query(Subaccount).get_by(user_id=user.user_id, name=subaccount_name)
+                subaccount = Subaccount.find(user_id=user.user_id, name=subaccount_name).one()
                 if subaccount is None:
                     return
                 authenticator = subaccount
@@ -121,7 +120,7 @@ class FreeCrittersRequest(Request):
             else:
                 subaccount_name = None
             money = self.user.money
-            new_mail = self.has_permission('view_mail') \
+            new_mail = self.has_permission(u'view_mail') \
                        and self.user.has_new_mail()
             
         return {'fc': {'site_name': self.config.site_name,
@@ -184,19 +183,19 @@ class FreeCrittersApplication(RegexApplication):
     
     def __iter__(self):
         # We're doing this here instead of in process_request because
-        # process_http_exception wants an open session too.
+        # process_http_exception wants an open store too.
         try:
             try:
                 response = super(FreeCrittersApplication, self).__iter__()
             except:
-                self.request.trans.rollback()
+                self.request.store.rollback()
                 raise
             else:
-                self.request.trans.commit()
+                self.request.store.commit()
             return response
         finally:
-            self.request.sess.close()
-            del ctx.current
+            self.request.store.close()
+            del ctx.store
     
     def process_http_exception(self, e):
         if isinstance(e, AccessDenied):

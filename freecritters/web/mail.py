@@ -14,7 +14,7 @@ from freecritters.web.paginator import Paginator
 from freecritters.web.application import FreeCrittersResponse
 from colubrid.utils import MultiDict
 from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
-from sqlalchemy import desc, lazyload, eagerload, and_, Query
+from storm.locals import Desc
 from datetime import datetime
 import simplejson
 
@@ -42,12 +42,12 @@ def pre_mail_message_json(req):
             u'message': user.render_pre_mail_message()
         }
     
-def _conversation_data(participation):
+def _conversation_data(participation, conversation):
     if participation.system:
         other_participants = None
     else:
         other_participants = []
-        for participant in participation.conversation.participants:
+        for participant in conversation.participants:
             if participant != participation:
                 other_participants.append({
                     u'link': user_link(participant.user),
@@ -57,25 +57,20 @@ def _conversation_data(participation):
         u'id': participation.conversation_id,
         u'new': participation.last_view is None \
              or participation.last_view < participation.last_change,
-        u'subject': participation.conversation.subject,
-        u'link': conversation_link(participation.conversation),
+        u'subject': conversation.subject,
+        u'link': conversation_link(conversation),
         u'other_participants': other_participants,
         u'last_change': participation.last_change
     }
 
                          
 def _inbox_data(req, where_clause, limit, offset=0):
-    query = Query(MailParticipant).options(lazyload('conversation'), lazyload('user'))
-    participations = query.select(where_clause,
-                                  order_by=desc(MailParticipant.c.last_change),
-                                  limit=limit, offset=offset)
-    # Load all the conversations at once (this is faster than eager loading)
-    Query(MailConversation).select(
-        MailConversation.c.conversation_id.in_(*[p.conversation_id for p in participations])
-    )
-    conversations = [_conversation_data(participation)
-                     for participation in participations]
-    return conversations
+    participations = req.store.find((MailParticipant, MailConversation),
+        where_clause,
+        MailParticipant.conversation_id==MailConversation.conversation_id
+    ).order_by(Desc(MailParticipant.last_change))[offset:offset+limit]    
+    return [_conversation_data(participation, conversation)
+            for (participation, conversation) in participations]
 
 def _message_data(message):
     result = {
@@ -92,13 +87,12 @@ def _message_data(message):
     return result
     
 def _inbox_rss_data(req, limit, offset=0):
-    query = Query(MailMessage).options(lazyload('conversation'))
     where_clause = MailParticipant.where_clause(req.user)
-    messages = query.select(and_(where_clause,
-                                 MailMessage.c.user_id!=req.user.user_id,
-                                 MailParticipant.c.conversation_id==MailMessage.c.conversation_id),
-                            order_by=desc(MailMessage.c.sent),
-                            limit=limit, offset=offset)
+    messages = MailMessage.find(
+        where_clause,
+        MailMessage.user_id!=req.user.user_id,
+        MailParticipant.conversation_id==MailMessage.conversation_id
+    ).order_by(Desc(MailMessage.sent))[offset:offset+limit]
     messages = [_message_data(message) for message in messages]
     result = {
         u'messages': messages
@@ -112,15 +106,14 @@ def _inbox_rss_data(req, limit, offset=0):
 def inbox(req):
     req.check_permission(u'view_mail')
     req.user.last_inbox_view = datetime.utcnow()
-    query = Query(MailParticipant)
     where_clause = MailParticipant.where_clause(req.user)
-    paginator = Paginator(req, query.count(where_clause))
+    paginator = Paginator(req, MailParticipant.find(where_clause).count())
     context = {
         'conversations': _inbox_data(req, where_clause, **paginator.kwargs),
         'paginator': paginator,
         'form_token': req.form_token(),
-        'can_send': req.has_permission('send_mail'),
-        'can_delete': req.has_permission('delete_mail')
+        'can_send': req.has_permission(u'send_mail'),
+        'can_delete': req.has_permission(u'delete_mail')
     }
     return req.render_template('inbox.html', context)
 
@@ -166,12 +159,12 @@ def send(req):
     form = SendForm(req, defaults)
     values = form.values_dict()
     if form.was_filled and not form.errors and u'preview' not in values:
-        conversation = MailConversation(values[u'subject'])
-        participant1 = MailParticipant(conversation, req.user)
-        participant2 = MailParticipant(conversation, values[u'user'])
+        conversation = MailConversation(values[u'subject']).save().save()
+        participant1 = MailParticipant(conversation, req.user).save()
+        participant2 = MailParticipant(conversation, values[u'user']).save()
         message = MailMessage(conversation, req.user,
-                              values[u'message'][0], values[u'message'][1])
-        req.sess.flush()
+                              values[u'message'][0], values[u'message'][1]).save()
+        req.store.flush()
         req.user.last_inbox_view = datetime.utcnow()
         redirect(req, HttpFound, conversation_link(conversation).encode('utf8'))
     else:
@@ -207,7 +200,11 @@ class DeleteForm(Form):
     
 def conversation(req, conversation_id):
     req.check_permission(u'view_mail')
-    conversation = Query(MailConversation).get(conversation_id)
+    try:
+        conversation_id = int(conversation_id)
+    except ValueError:
+        raise PageNotFound()
+    conversation = MailConversation.get(conversation_id)
     if conversation is None:
         raise PageNotFound()
     if not conversation.can_be_viewed_by(req.user, req.subaccount):
@@ -226,7 +223,7 @@ def conversation(req, conversation_id):
                 u'username': participant.user.username
             })
     
-    if req.has_permission('delete_mail'):
+    if req.has_permission(u'delete_mail'):
         defaults = {
             u'delete_form_token': req.form_token()
         }
@@ -247,7 +244,7 @@ def conversation(req, conversation_id):
         }
         if 'quote' in req.args and req.args['quote'].isdigit():
             quoted_id = int(req.args['quote'])
-            quoted_message = Query(MailMessage).get(quoted_id)
+            quoted_message = MailMessage.get(quoted_id)
             if quoted_message is not None \
                and quoted_message.conversation == conversation:
                 defaults[u'message'] = (
@@ -300,34 +297,43 @@ def conversation(req, conversation_id):
     return req.render_template('mailconversation.html', context)
 
 def reply(req, conversation_id):
-    # Hooray for nearly-duplicated code!
     req.check_permission(u'send_mail')
-    conversation = Query(MailConversation).get(conversation_id)
+    
+    try:
+        conversation_id = int(conversation_id)
+    except ValueError:
+        raise PagenotFound()
+    conversation = MailConversation.get(conversation_id)
     if conversation is None:
         raise PageNotFound()
+    
     if not conversation.can_be_replied_to_by(req.user, req.subaccount):
         raise AccessDenied()
+        
     defaults = {
         u'form_token': req.form_token(),
     }
     reply_form = ReplyForm(req, defaults)
     reply_form.action = u'/mail/%s/reply' % conversation.conversation_id
     values = reply_form.values_dict()
+    
     if 'preview' not in values and reply_form.was_filled \
             and not reply_form.errors:
         message = MailMessage(conversation, req.user,
-                              values['message'][0], values['message'][1])
+                              values['message'][0], values['message'][1]).save()
         for participant in conversation.participants:
             if participant.user != req.user:
                 participant.last_change = datetime.utcnow()
             participant.deleted = False
         redirect(req, HttpFound,
             '/mail/%s?reply_successful=1' % conversation.conversation_id)
+            
     if 'preview' in values and reply_form.was_filled \
             and not reply_form.errors:
         preview = values['message'][1]
     else:
         preview = None
+        
     reply_form = reply_form.generate()
     context = {
         u'reply_form': reply_form,
@@ -362,7 +368,7 @@ def multi_delete(req):
                 id_ = int(id_)
             except ValueError:
                 continue
-            conversation = Query(MailConversation).get(id_)
+            conversation = MailConversation.get(id_)
             if conversation is None:
                 continue
             participant = conversation.find_participant(req.user)

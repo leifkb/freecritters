@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from freecritters.web.form import Modifier, ValidationError
 from freecritters.model import User, Subaccount, FormToken, Pet, Appearance
 from freecritters.textformats import render_html
-from sqlalchemy import Query
 
 class UsernameNotTakenValidator(Modifier):
     """Validates that a username isn't taken."""
@@ -55,7 +54,7 @@ class AppearanceModifier(Modifier):
             value = int(value)
         except ValueError:
             raise ValidationError(self.message)
-        appearance = Query(Appearance).get(value)
+        appearance = Appearance.get(value)
         if appearance is None:
             raise ValidationError(self.message)
         return appearance
@@ -75,8 +74,7 @@ class SubaccountModifier(Modifier):
             return None
         else:
             user = form.modified_values[self.user_field]
-            query = Query(Subaccount)
-            subaccount = query.get_by(user_id=user.user_id, name=value)
+            subaccount = Subaccount.find(user_id=user.user_id, name=value).one()
             if subaccount is None:
                 raise ValidationError(self.message)
             return subaccount

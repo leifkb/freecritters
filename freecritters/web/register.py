@@ -38,10 +38,10 @@ def register(req):
     form = RegisterForm(req)
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        user = model.User(values['username'], values['password'])
+        user = model.User(values['username'], values['password']).save()
         user.role = model.Role.find_label(u'default')
         login = model.Login(user, None)
-        req.sess.flush()
+        req.store.flush()
         req.login = login
         req.user = login.user
         response = req.render_template('registered.html', username=values['username'])

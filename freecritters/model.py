@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import DynamicMetaData, Table, Column, Integer, Unicode, \
-                       mapper, Binary, DateTime, func, ForeignKey, relation, \
-                       backref, UniqueConstraint, Index, object_session, \
-                       and_, Boolean, select, func, cast, String, \
-                       create_session, Query, deferred, MapperExtension
-from sqlalchemy.sql import literal
-from sqlalchemy.ext.sessioncontext import SessionContext
-from sqlalchemy.orm.mapper import global_extensions
+from storm.locals import *
 import sha
 import re
 from random import randint
@@ -20,280 +13,26 @@ except ImportError:
     from freecritters import _uuid as uuid
 import Image
 from StringIO import StringIO
+import threading
 
-def _foreign_key(name):
-    """Shortcut for a cascaded foreign key."""
+ctx = threading.local()
+
+class Base(Storm):
+    @classmethod
+    def find(cls, *args, **kwargs):
+        return ctx.store.find(cls, *args, **kwargs)
     
-    return ForeignKey(name, onupdate='CASCADE', ondelete='CASCADE')
+    @classmethod
+    def get(cls, *args, **kwargs):
+        return ctx.store.get(cls, *args, **kwargs)
+    
+    def save(self):
+        return ctx.store.add(self)
+    
+    def delete(self):
+        ctx.store.remove(self)
 
-class FieldCopierExtension(MapperExtension):
-    def __init__(self, columns=None, **kwargs):
-        if columns is not None:
-            kwargs.update(columns)
-        self.columns = kwargs
-        
-    def after_insert(self, mapper, connection, instance):
-        clause = and_(*[
-            col==value
-            for col, value
-            in zip(mapper.primary_key, mapper.primary_key_from_instance(instance))
-        ])
-        values = {}
-        for col1, cols in self.columns.iteritems():
-            if getattr(instance, col1) is None:
-                value = getattr(instance, col2)
-                setattr(instance, col1, value)
-                values[col1] = col2
-        if values:
-            connection.execute(mapper.mapped_table.update(clause, values=values))
-        return EXT_PASS
-
-ctx = SessionContext(create_session)
-global_extensions.append(ctx.mapper_extension)
-
-metadata = DynamicMetaData()
-
-users = Table('users', metadata,
-    Column('user_id', Integer, primary_key=True, nullable=False),
-    Column('username', Unicode, nullable=False),
-    Column('unformatted_username', Unicode, unique=True, index=True,
-           nullable=False),
-    Column('password', Binary(20), nullable=False),
-    Column('salt', Binary(4), nullable=False),
-    Column('profile', Unicode, nullable=False),
-    Column('rendered_profile', Unicode, nullable=False),
-    Column('money', Integer, nullable=False),
-    Column('registration_date', DateTime(timezone=False), nullable=False),
-    Column('pre_mail_message', Unicode(512)),
-    Column('last_inbox_view', DateTime(timezone=False)),
-    Column('role_id', Integer, ForeignKey('roles.role_id'), nullable=False)
-)
-
-subaccounts = Table('subaccounts', metadata,
-    Column('subaccount_id', Integer, primary_key=True, nullable=False),
-    Column('user_id', Integer, ForeignKey('users.user_id'), index=True,
-           nullable=False),
-    Column('name', Unicode, nullable=False),
-    Column('password', Binary(20), nullable=False),
-    Column('salt', Binary(4), nullable=False),
-    UniqueConstraint('user_id', 'name')
-)
-Index('idx_subaccounts_userid_name', subaccounts.c.user_id, subaccounts.c.name)
-
-logins = Table('logins', metadata,
-    Column('login_id', Integer, primary_key=True, nullable=False),
-    Column('code', Unicode, nullable=False),
-    Column('creation_time', DateTime(timezone=False), nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id'), index=True,
-           nullable=False),
-    Column('subaccount_id', Integer,
-           _foreign_key('subaccounts.subaccount_id'), index=True)
-)
-
-form_tokens = Table('form_tokens', metadata,
-    Column('form_token_id', Integer, primary_key=True, nullable=False),
-    Column('token', Unicode, nullable=False),
-    Column('creation_time', DateTime(timezone=False), index=True, nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id'), nullable=False),
-    Column('subaccount_id', Integer,
-           _foreign_key('subaccounts.subaccount_id'), index=True)
-)
-Index('idx_formtokens_userid_subaccountid_creationtime_token',
-      form_tokens.c.user_id, form_tokens.c.subaccount_id,
-      form_tokens.c.creation_time, form_tokens.c.token)
-
-mail_conversations = Table('mail_conversations', metadata,
-    Column('conversation_id', Integer, primary_key=True, nullable=False),
-    Column('subject', Unicode(128), nullable=False),
-    Column('creation_time', DateTime(timezone=False), nullable=False)
-)
-
-mail_participants = Table('mail_participants', metadata,
-    Column('participant_id', Integer, primary_key=True, nullable=False),
-    Column('conversation_id', Integer,
-           _foreign_key('mail_conversations.conversation_id'),
-           index=True, nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id')),
-    Column('last_change', DateTime(timezone=False), nullable=False),
-    Column('last_view', DateTime(timezone=False)),
-    Column('deleted', Boolean, nullable=False),
-    Column('system', Boolean, nullable=False),
-    UniqueConstraint('conversation_id', 'user_id')
-)
-Index('idx_mailparticipants_userid_deleted_lastchange',
-      mail_participants.c.user_id, mail_participants.c.deleted,
-      mail_participants.c.last_change
-)
-Index('idx_mailparticipants_userid_deleted_system_lastchange',
-      mail_participants.c.user_id, mail_participants.c.deleted,
-      mail_participants.c.system, mail_participants.c.last_change
-)
-
-mail_messages = Table('mail_messages', metadata,
-    Column('message_id', Integer, primary_key=True, nullable=False),
-    Column('conversation_id', Integer,
-           _foreign_key('mail_conversations.conversation_id'), index=True,
-           nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id'), nullable=False),
-    Column('message', Unicode, nullable=False),
-    Column('rendered_message', Unicode, nullable=False),
-    Column('sent', DateTime(timezone=False), nullable=False)
-)
-Index('idx_mailmessages_conversationid_sent',
-      mail_messages.c.conversation_id,
-      mail_messages.c.sent
-)
-
-permissions = Table('permissions', metadata,
-    Column('permission_id', Integer, primary_key=True, nullable=False),
-    Column('label', Unicode(32), unique=True, nullable=True),
-    Column('title', Unicode(128), nullable=False),
-    Column('description', Unicode, nullable=False)
-)
-
-roles = Table('roles', metadata,
-    Column('role_id', Integer, primary_key=True, nullable=False),
-    Column('label', Unicode(32), unique=True, nullable=True),
-    Column('name', Unicode(128), nullable=False)
-)
-
-role_permissions = Table('role_permissions', metadata,
-    Column('role_id', Integer, _foreign_key('roles.role_id'),
-           primary_key=True),
-    Column('permission_id', Integer, _foreign_key('permissions.permission_id'),
-           primary_key=True)
-)
-
-subaccount_permissions = Table('subaccount_permissions', metadata,
-    Column('subaccount_id', Integer, _foreign_key('subaccounts.subaccount_id'),
-           primary_key=True),
-    Column('permission_id', Integer, _foreign_key('permissions.permission_id'),
-           primary_key=True)
-)
-
-pictures = Table('pictures', metadata,
-    Column('picture_id', Integer, primary_key=True),
-    Column('added', DateTime(timezone=False), nullable=False),
-    Column('name', Unicode(128), nullable=False),
-    Column('copyright', Unicode, nullable=False),
-    Column('description', Unicode, nullable=False),
-    Column('width', Integer, nullable=False),
-    Column('height', Integer, nullable=False),
-    Column('format', String(16), nullable=False),
-    Column('image', Binary, nullable=False)
-)
-
-resized_pictures = Table('resized_pictures', metadata,
-    Column('resized_picture_id', Integer, primary_key=True),
-    Column('picture_id', Integer, _foreign_key('pictures.picture_id'), index=True, nullable=False),
-    Column('added', DateTime(timezone=False), nullable=False),
-    Column('last_used', DateTime(timezone=False), index=True),
-    Column('width', Integer, nullable=False),
-    Column('height', Integer, nullable=False),
-    Column('image', Binary, nullable=False)
-)
-Index('idx_resizedpictures_pictureid_width_height',
-    resized_pictures.c.picture_id,
-    resized_pictures.c.width,
-    resized_pictures.c.height
-)
-
-species = Table('species', metadata,
-    Column('species_id', Integer, primary_key=True),
-    Column('name', Unicode, nullable=False, index=True),
-    Column('creatable', Boolean, nullable=False)
-)
-
-appearances = Table('appearances', metadata,
-    Column('appearance_id', Integer, primary_key=True),
-    Column('name', Unicode, nullable=False),
-    Column('creatable', Boolean, nullable=False)
-)
-
-species_appearances = Table('species_appearances', metadata,
-    Column('species_appearance_id', Integer, primary_key=True),
-    Column('species_id', Integer, _foreign_key('species.species_id'), index=True, nullable=False),
-    Column('appearance_id', Integer,_foreign_key('appearances.appearance_id'), nullable=False),
-    Column('white_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
-    Column('black_picture_id', Integer, ForeignKey('pictures.picture_id'), nullable=False),
-    UniqueConstraint('species_id', 'appearance_id')
-)
-Index('idx_speciesappearances_speciesid_appearanceid',
-    species_appearances.c.species_id,
-    species_appearances.c.appearance_id
-)
-
-pets = Table('pets', metadata,
-    Column('pet_id', Integer, primary_key=True),
-    Column('created', DateTime(timezone=False), nullable=False),
-    Column('name', Unicode, nullable=False),
-    Column('unformatted_name', Unicode, index=True, unique=True, nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id'), index=True, nullable=False),
-    Column('species_appearance_id', Integer, ForeignKey('species_appearances.species_appearance_id'), nullable=False),
-    Column('color_red', Integer, nullable=False),
-    Column('color_green', Integer, nullable=False),
-    Column('color_blue', Integer, nullable=False)
-)
-
-groups = Table('groups', metadata,
-    Column('group_id', Integer, primary_key=True),
-    Column('type', Integer, index=True, nullable=False),
-    Column('name', Unicode(128), index=True, nullable=False),
-    Column('description', Unicode, nullable=False),
-    Column('owner_user_id', Integer, _foreign_key('users.user_id'), index=True, nullable=False),
-    Column('member_count', Integer, index=True, nullable=False),
-    Column('default_role_id', Integer, _foreign_key('group_roles.group_role_id'), nullable=False)
-)
-
-standard_group_permissions = Table('standard_group_permissions', metadata,
-    Column('standard_group_permission_id', Integer, primary_key=True),
-    Column('label', Unicode(32), unique=True, nullable=False),
-    Column('title', Unicode(128), nullable=False),
-    Column('description', Unicode, nullable=False)
-)
-
-special_group_permissions = Table('special_group_permissions', metadata,
-    Column('special_group_permission_id', Integer, primary_key=True),
-    Column('group', Integer, _foreign_key('groups.group_id'), index=True, nullable=False),
-    Column('title', Unicode(128), nullable=False)
-)
-
-group_roles = Table('group_roles', metadata,
-    Column('group_role_id', Integer, primary_key=True),
-    Column('group', Integer, _foreign_key('groups.group_id'), index=True, nullable=False),
-    Column('name', Unicode(128), nullable=False)
-)
-
-group_role_standard_permissions = Table('group_role_standard_permissions', metadata,
-    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), primary_key=True),
-    Column('standard_group_permission_id', Integer, _foreign_key('standard_group_permissions.standard_group_permission_id'), primary_key=True)
-)
-
-group_role_special_permissions= Table('group_role_special_permissions', metadata,
-    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), primary_key=True),
-    Column('special_group_permission_id', Integer, _foreign_key('special_group_permissions.special_group_permission_id'), primary_key=True)
-)
-
-group_members = Table('group_members', metadata,
-    Column('group_member_id', Integer, primary_key=True),
-    Column('user_id', Integer, _foreign_key('users.user_id'), nullable=False),
-    Column('group_id', Integer, _foreign_key('groups.group_id'), nullable=False),
-    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id'), nullable=False),
-    UniqueConstraint('user_id', 'group_id')
-)
-
-forums = Table('forums', metadata,
-    Column('forum_id', Integer, primary_key=True),
-    Column('group_id', Integer, _foreign_key('groups.group_id')),
-    Column('name', Unicode(128), nullable=False),
-    Column('order_num', Integer, nullable=False)
-)
-Index('idx_forums_groupid_ordernum',
-    forums.c.group_id,
-    forums.c.order_num
-)
-
-class PasswordHolder(object):
+class PasswordHolder(Base):
     """Helper class that can be subclassed to gain methods for dealing with a
     password.
     """
@@ -317,10 +56,33 @@ class PasswordHolder(object):
         return self.hash_password(password) == str(self.password)
         
 class User(PasswordHolder):
+    __storm_table__ = 'users'
     username_length = 20
     username_regex = re.compile( # Now I have two problems
         ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % username_length)
     pre_mail_message_max_length = 300
+    
+    user_id = Int(primary=True)
+    username = Unicode()
+    unformatted_username = Unicode()
+    password = RawStr()
+    salt = RawStr()
+    profile = Unicode()
+    rendered_profile = Unicode()
+    money = Int()
+    registration_date = DateTime()
+    pre_mail_message = Unicode()
+    last_inbox_view = DateTime()
+    role_id = Int()
+    role = Reference(role_id, 'Role.role_id')
+    subaccounts = ReferenceSet(user_id, 'Subaccount.user_id')
+    logins = ReferenceSet(user_id, 'Logins.user_id')
+    form_tokens = ReferenceSet(user_id, 'FormToken.user_id')
+    permissions = ReferenceSet(role_id,
+                               'RolePermission.role_id',
+                               'RolePermission.permission_id',
+                               'Permission.permission_id')
+    pets = ReferenceSet(user_id, 'Pet.user_id')
     
     def __init__(self, username, password, money=0):
         """Password should be unhashed."""
@@ -361,11 +123,11 @@ class User(PasswordHolder):
             return render_plain_text(self.pre_mail_message, 3)
         
     def has_new_mail(self):
-        conn = object_session(self).connection(MailParticipant)
-        query = select([func.max(mail_participants.c.last_change)],
-                       and_(mail_participants.c.user_id==self.user_id,
-                            mail_participants.c.deleted==False))
-        last_mail_change = conn.execute(query).fetchone()[0]
+        last_mail_change = Store.of(self).find(
+            MailParticipant,
+            MailParticipant.user_id==self.user_id,
+            MailParticipant.deleted==False
+        ).max(MailParticipant.last_change) 
         if last_mail_change is None:
             return False
         else:
@@ -378,26 +140,57 @@ class User(PasswordHolder):
         the user doesn't exist.
         """
         if username.isdigit():
-            return Query(cls).get(int(username))
+            return cls.get(int(username))
         else:
             username = cls.unformat_username(username)
-            return Query(cls).get_by_unformatted_username(username)
+            return cls.find(User.unformatted_username==username).one()
             
 class Subaccount(PasswordHolder):
+    __storm_table__ = 'subaccounts'
+    subaccount_id = Int(primary=True)
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    name = Unicode()
+    password = RawStr()
+    salt = RawStr()
+    form_tokens = ReferenceSet(subaccount_id, 'FormToken.subaccount_id')
+    permissions = ReferenceSet(subaccount_id,
+                               'SubaccountPermission.subaccount_id',
+                               'SubaccountPermission.permission_id',
+                               'Permission.permission_id')
+                               
     def __init__(self, user, name, password):
         super(Subaccount, self).__init__()
         self.user = user
         self.name = name
         self.change_password(password)
 
-class Login(object):
+class Login(Base):
+    __storm_table__ = 'logins'
+    login_id = Int(primary=True)
+    code = Unicode()
+    creation_time = DateTime()
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    subaccount_id = Int()
+    subaccount = Reference(subaccount_id, 'Subaccount.subaccount_id')
+    
     def __init__(self, user, subaccount=None):
         self.user = user
         self.subaccount = subaccount
         self.code = unicode(uuid.uuid4())
         self.creation_time = datetime.utcnow()
 
-class FormToken(object):
+class FormToken(Base):
+    __storm_table__ = 'form_tokens'
+    form_token_id = Int(primary=True)
+    token = Unicode()
+    creation_time = DateTime()
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    subaccount_id = Int()
+    subaccount = Reference(subaccount_id, 'Subaccount.subaccount_id')
+    
     def __init__(self, user, subaccount=None):
         self.user = user
         self.subaccount = subaccount
@@ -408,22 +201,22 @@ class FormToken(object):
     def form_token_for(cls, user, subaccount=None):
         """Finds or creates a form token for a user and subaccount and returns
         it. If a token is created, it will be automatically saved in the
-        database session.
+        database store.
         """
         
-        query = Query(cls)
         min_creation_time = datetime.utcnow() - timedelta(days=1)
         if subaccount is None:
-            subaccount_clause = cls.c.subaccount_id==None
+            subaccount_clause = cls.subaccount_id==None
         else:
-            subaccount_clause = cls.c.subaccount_id==subaccount.subaccount_id
-        clause = and_(
-            cls.c.user_id==user.user_id,
+            subaccount_clause = cls.subaccount_id==subaccount.subaccount_id
+        form_token = cls.find(
+            cls.user_id==user.user_id,
             subaccount_clause,
-            cls.c.creation_time>=min_creation_time)
-        form_token = query.selectfirst(clause)
+            cls.creation_time>=min_creation_time
+        ).any()
         if form_token is None:
             form_token = cls(user, subaccount)
+            form_token.save()
         return form_token
     
     @classmethod
@@ -432,32 +225,37 @@ class FormToken(object):
         exist.
         """
         # Blah, blah, reuse code instead of copying and pasting, blah blah...
-        query = Query(cls)
         min_creation_time = datetime.utcnow() - timedelta(days=7)
         if subaccount is None:
-            subaccount_clause = cls.c.subaccount_id==None
+            subaccount_clause = cls.subaccount_id==None
         else:
-            subaccount_clause = cls.c.subaccount_id==subaccount.subaccount_id
-        clause = and_(
-            cls.c.user_id==user.user_id,
+            subaccount_clause = cls.subaccount_id==subaccount.subaccount_id
+        form_token = cls.find(
+            cls.user_id==user.user_id,
             subaccount_clause,
-            cls.c.creation_time>=min_creation_time,
-            cls.c.token==token)
-        form_token = query.selectfirst(clause)
+            cls.creation_time>=min_creation_time,
+            cls.token==token
+        ).any()
         return form_token
 
-class MailConversation(object):
+class MailConversation(Base):
     max_subject_length = 45
+    __storm_table__ = 'mail_conversations'
+    conversation_id = Int(primary=True)
+    subject = Unicode()
+    creation_time = DateTime()
+    participants = ReferenceSet(conversation_id, 'MailParticipant.conversation_id')
+    messages = ReferenceSet(conversation_id, 'MailMessage.conversation_id')
     
     def __init__(self, subject):
         self.subject = subject
         self.creation_time = datetime.utcnow()
     
     def find_participant(self, user):
-        for participant in self.participants:
-            if participant.user == user and participant.deleted == False:
-                return participant
-        return None
+        return self.participants.find(
+            MailParticipant.user_id==user.user_id,
+            MailParticipant.deleted==False
+        ).one()
         
     def can_be_viewed_by(self, user, subaccount):
         return self.find_participant(user) is not None
@@ -465,7 +263,18 @@ class MailConversation(object):
     def can_be_replied_to_by(self, user, subaccount):
         return self.can_be_viewed_by(user, subaccount)
         
-class MailParticipant(object):
+class MailParticipant(Base):
+    __storm_table__ = 'mail_participants'
+    participant_id = Int(primary=True)
+    conversation_id = Int()
+    conversation = Reference(conversation_id, 'MailConversation.conversation_id')
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    last_change = DateTime()
+    last_view = DateTime()
+    deleted = Bool()
+    system = Bool()
+    
     def __init__(self, conversation, user, system=False):
         self.conversation = conversation
         self.user = user
@@ -476,30 +285,41 @@ class MailParticipant(object):
 
     def delete(self):
         self.deleted = True
-        for participant in self.conversation.participants:
-            if not participant.deleted:
-                break
-        else:
-            object_session(self).delete(self.conversation)
+        non_deleted_count = MailParticipant.find(
+            MailParticipant.conversation_id==self.conversation_id,
+            MailParticipant.deleted==False
+        ).count()
+        if non_deleted_count == 0:
+            self.conversation.delete()
         
     @classmethod
     def where_clause(cls, user, user2=None, system=None):
-        result = and_(
-            mail_participants.c.user_id==user.user_id,
-            mail_participants.c.deleted==False
+        result = And(
+            MailParticipant.user_id==user.user_id,
+            MailParticipant.deleted==False
         )
         if system is not None:
-            result = and_(result, mail_participants.c.system==system)
+            result = And(result, MailParticipant.system==system)
         if user2 is not None:
-            mp2 = mail_participants.alias('mail_participants2')
-            result = and_(
+            mp2 = ClassAlias(MailParticipant)
+            result = And(
                 result,
-                mp2.c.conversation_id==mail_participants.c.conversation_id,
-                mp2.c.user_id==user2.user_id
+                mp2.conversation_id==MailParticipant.conversation_id,
+                mp2.user_id==user2.user_id
             )
         return result
         
-class MailMessage(object):
+class MailMessage(Base):
+    __storm_table__ = 'mail_messages'
+    message_id = Int(primary=True)
+    conversation_id = Int()
+    conversation = Reference(conversation_id, 'MailConversation.conversation_id')
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    message = Unicode()
+    rendered_message = Unicode()
+    sent = DateTime()
+    
     def __init__(self, conversation, user, message, rendered_message):
         self.conversation = conversation
         self.user = user
@@ -507,7 +327,13 @@ class MailMessage(object):
         self.rendered_message = rendered_message
         self.sent = datetime.utcnow()
         
-class Permission(object):
+class Permission(Base):
+    __storm_table__ = 'permissions'
+    permission_id = Int(primary=True)
+    label = Unicode()
+    title = Unicode()
+    description = Unicode()
+    
     def __init__(self, title, description, label=None):
         self.title = title
         self.description = description
@@ -515,7 +341,7 @@ class Permission(object):
         
     @classmethod
     def find_label(cls, label, allow_none=False):
-        result = Query(cls).get_by_label(label)
+        result = cls.find(label=label).one()
         if not allow_none:
             assert result is not None, \
                 'Permission labelled %r not found.' % label
@@ -526,26 +352,67 @@ class Permission(object):
         optionally, subaccount.
         """
         
-        result = self in user.role.permissions
-                
+        result = bool(user.role.permissions.find(
+            Permission.permission_id==self.permission_id
+        ).count())
+        
         if result and subaccount is not None:
-            result = self in subaccount.permissions
+            result = bool(Subaccount.permissions.find(
+                Permission.permission_id==self.permission_id
+            ).count())
         
         return result
         
-class Role(object):
+class Role(Base):
+    __storm_table__ = 'roles'
+    role_id = Int(primary=True)
+    label = Unicode()
+    name = Unicode()
+    permissions = ReferenceSet(role_id,
+                               'RolePermission.role_id',
+                               'RolePermission.permission_id',
+                               'Permission.permission_id')
+                               
     def __init__(self, name, label=None):
         self.label = label
         self.name = name
     
     @classmethod
     def find_label(cls, label, allow_none=False): # Whee! Duplication!
-        result = Query(cls).get_by_label(label)
+        result = cls.find(label=label).one()
         if not allow_none:
             assert result is not None, 'Role labelled %r not found.' % label
         return result
+
+class RolePermission(Base):
+    __storm_table__ = 'role_permissions'
+    __storm_primary__ = 'role_id', 'permission_id'
+    role_id = Int()
+    role = Reference(role_id, 'Role.role_id')
+    permission_id = Int()
+    permission = Reference(permission_id, 'Permission.permission_id')
+
+class SubaccountPermission(Base):
+    __storm_table__ = 'subaccount_permissions'
+    __storm_primary__ = 'subaccount_id', 'permission_id'
+    subaccount_id = Int()
+    subaccount = Reference(subaccount_id, 'Subaccount.subaccount_id')
+    permission_id = Int()
+    permission = Reference(permission_id, 'Subaccount.subaccount_id')
+
+class Picture(Base):
+    __storm_table__ = 'pictures'
+    picture_id = Int(primary=True)
+    added = DateTime()
+    name = Unicode()
+    copyright = Unicode()
+    description = Unicode()
+    width = Int()
+    height = Int()
+    format = RawStr()
+    image = RawStr()
+    resized_images = ReferenceSet(picture_id, 'ResizedPictures.picture_id')
     
-class Picture(object):
     def __init__(self, name, copyright, description, image):
         self.name = name
         self.copyright = copyright
@@ -625,17 +492,23 @@ class Picture(object):
         """
         if width == self.width and height == self.height:
             return self
-        picture = Query(ResizedPicture).get_by(picture_id=self.picture_id,
-                                               width=width, height=height)
+        picture = self.resized_pictures.find(width=width, height=height).any()
         if picture is not None:
             picture.last_used = datetime.utcnow()
             return picture
         picture = ResizedPicture(self, width, height)
-        picture.last_used = datetime.utcnow()
-        ctx.current.flush()
         return picture
 
-class ResizedPicture(object):
+class ResizedPicture(Base):
+    __storm_table__ = 'resized_pictures'
+    resized_picture_id = Int(primary=True)
+    picture_id = Int()
+    picture = Reference(picture_id, 'Pictures.picture_id')
+    added = DateTime()
+    width = Int()
+    height = Int()
+    image = RawStr()
+    
     def __init__(self, picture, width, height):
         self.picture = picture
         pil_image = picture.pil_image
@@ -661,44 +534,58 @@ class ResizedPicture(object):
         data = StringIO(self.image)
         return Image.open(data)
 
-class Species(object):
+class Species(Base):
+    __storm_table__ = 'species'
+    species_id = Int(primary=True)
+    name = Unicode()
+    creatable = Bool()
+    appearances = ReferenceSet(species_id,
+                               'SpeciesAppearance.species_id',
+                               'SpeciesAppearance.appearance_id',
+                               'Appearance.appearance_id')
+                           
     def __init__(self, name, creatable=True):
         self.name = name
         self.creatable = creatable
-    
-    def species_appearance(self, appearance, required=False):
-        result = Query(SpeciesAppearance).get_by(
-            species_id=self.species_id, appearance_id=appearance.appearance_id
-        )
-        if required and result is None:
-            raise ValueError("Species %s is not available with appearance %s." % (species.name, appearance.name))
-        return result
     
     @property
     def can_be_created(self):
         if not self.creatable:
             return False
-        for species_appearance in self.appearances:
-            if species_appearance.appearance.creatable:
-                return True
-        return False
+        return bool(self.appearances.find(creatable=True).count())
     
     @classmethod
-    def find_creatable(cls):
-        return Query(cls).filter(and_(
-            species.c.creatable==True,
-            species_appearances.c.species_id==species.c.species_id,
-            species_appearances.c.appearance_id==appearances.c.appearance_id,
-            appearances.c.creatable==True,
-            func.count(species_appearances.c.species_appearance_id) > 0,
-        )).group_by([c for c in species.c])
+    def find_creatable(cls, *order_by):
+        for obj in Species.find(creatable=True).order_by(*order_by):
+            if obj.can_be_created:
+                yield obj
         
-class Appearance(object):
+class Appearance(Base):
+    __storm_table__ = 'appearances'
+    appearance_id = Int(primary=True)
+    name = Unicode()
+    creatable = Bool()
+    species = ReferenceSet(appearance_id,
+                           'SpeciesAppearance.appearance_id',
+                           'SpeciesAppearance.species_id',
+                           'Species.species_id')
+    
     def __init__(self, name, creatable=True):
         self.name = name
         self.creatable = creatable
 
-class SpeciesAppearance(object):
+class SpeciesAppearance(Base):
+    __storm_table__ = 'species_appearances'
+    __storm_primary__ = 'species_id', 'appearance_id'
+    species_id = Int()
+    species = Reference(species_id, 'Species.species_id')
+    appearance_id = Int()
+    appearance = Reference(appearance_id, 'Appearance.appearance_id')
+    white_picture_id = Int()
+    white_picture = Reference(white_picture_id, 'Picture.picture_id')
+    black_picture_id = Int()
+    black_picture = Reference(black_picture_id, 'Picture.picture_id')
+    
     def __init__(self, species, appearance, white_picture, black_picture):
         self.species = species
         self.appearance = appearance
@@ -730,7 +617,25 @@ class SpeciesAppearance(object):
                      in zip(black_bands, white_bands, color)]
         return Image.merge(white_image.mode, bands)
         
-class Pet(object):
+class Pet(Base):
+    __storm_table__ = 'pets'
+    pet_id = Int(primary=True)
+    created = DateTime()
+    name = Unicode()
+    unformatted_name = Unicode()
+    user_id = Int()
+    user = Reference(user_id, 'User.user_id')
+    species_id = Int()
+    species = Reference(species_id, 'Species.species_id')
+    appearance_id = Int()
+    appearance = Reference(appearance_id, 'Appearance.appearance_id')
+    species_appearance = Reference((species_id, appearance_id),
+                                   ('SpeciesAppearance.species_id',
+                                    'SpeciesAppearance.appearance_id'))
+    color_red = Int()
+    color_green = Int()
+    color_blue = Int()
+    
     name_length = 20
     name_regex = re.compile(
         ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % name_length)
@@ -739,7 +644,8 @@ class Pet(object):
         self.created = datetime.utcnow()
         self.change_name(name)
         self.user = user
-        self.species_appearance = species.species_appearance(appearance, True)
+        self.species = species
+        self.appearance = appearance
         self.color = color
     
     _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
@@ -760,10 +666,10 @@ class Pet(object):
         the user doesn't exist.
         """
         if name.isdigit():
-            return Query(cls).get(int(name))
+            return cls.get(int(name))
         else:
             name = cls.unformat_name(name)
-            return Query(cls).get_by_unformatted_name(name)
+            return cls.find(unformatted_name=name).one()
     
     def _set_color(self, color):
         self.color_red, self.color_green, self.color_blue = color
@@ -772,24 +678,10 @@ class Pet(object):
         return self.color_red, self.color_green, self.color_blue
     
     color = property(_get_color, _set_color)
-    
-    def _set_species(self, species):
-        self.species_appearance = species.species_appearance(self.appearance)
-    
-    def _get_species(self):
-        return self.species_appearance.species
-    
-    species = property(_get_species, _set_species)
-    
-    def _set_appearance(self, appearance):
-        self.species_appearance = self.species.species_appearance(appearance)
-    
-    def _get_appearance(self):
-        return self.species_appearance.appearance
-    
-    appearance = property(_get_appearance, _set_appearance)
 
 class Group(object):
+    __storm_table__ = 'groups'
+    
     types_names = [u'Club', u'Guild', u'Cult']
     
     def __init__(self, type, name, description, owner):
@@ -826,7 +718,7 @@ class StandardGroupPermission(object):
     
     @classmethod
     def find_label(cls, label, allow_none=False):
-        result = Query(cls).get_by_label(label)
+        result = cls.find(label=label).one()
         if not allow_none:
             assert result is not None, \
                 'Group permission labelled %r not found.' % label
@@ -848,80 +740,3 @@ class GroupMember(object):
         self.user = user
         self.group = group
         self.group_role = group_role
-
-login_mapper = mapper(Login, logins, properties={
-    'user': relation(User, backref=backref('logins',
-                                           cascade='all, delete-orphan')),
-    'subaccount': relation(Subaccount, backref=backref('logins'))
-})
-        
-form_token_mapper = mapper(FormToken, form_tokens, properties={
-    'user': relation(User, backref=backref('form_tokens',
-                                           cascade='all, delete-orphan')),
-    'subaccount': relation(Subaccount, backref=backref('form_tokens'))
-})
-
-user_mapper = mapper(User, users, properties={
-    'role': relation(Role)
-})
-
-subaccount_mapper = mapper(Subaccount, subaccounts, properties={
-    'user': relation(User, backref=backref('subaccounts',
-                                           cascade='all, delete-orphan'))
-})
-
-mail_conversation_mapper = mapper(MailConversation, mail_conversations)
-
-mail_participant_mapper = mapper(MailParticipant, mail_participants, properties={
-    'conversation': relation(MailConversation, lazy=False,
-                             backref=backref('participants', lazy=False,
-                                             cascade='all, delete-orphan')),
-    'user': relation(User, lazy=False, backref=backref('_mail_participations', lazy=None, cascade='delete-orphan', passive_deletes=True))
-})
-
-mail_message_mapper = mapper(MailMessage, mail_messages, properties={
-    'conversation': relation(MailConversation,
-                             backref=backref('messages',
-                                             cascade='all, delete-orphan',
-                                             order_by=mail_messages.c.sent)),
-    'user': relation(User, backref=backref('_mail_messages', lazy=None, cascade='delete-orphan', passive_deletes=True))
-})
-
-permission_mapper = mapper(Permission, permissions, properties={
-    'roles': relation(Role, secondary=role_permissions,
-                      backref=backref('permissions',
-                                      order_by=permissions.c.title)),
-    'subaccounts': relation(Subaccount, secondary=subaccount_permissions,
-                            backref='permissions')
-})
-
-picture_mapper = mapper(Picture, pictures, properties={
-    'image': deferred(pictures.c.image)
-})
-
-resized_picture_mapper = mapper(ResizedPicture, resized_pictures, properties={
-    'picture': relation(Picture, backref=backref('resized_pictures', cascade='all, delete-orphan')),
-    'image': deferred(resized_pictures.c.image)
-})
-
-role_mapper = mapper(Role, roles)
-
-species_mapper = mapper(Species, species)
-
-appearances_mapper = mapper(Appearance, appearances)
-
-species_appearances_mapper = mapper(SpeciesAppearance, species_appearances, properties={
-    'species': relation(Species, backref=backref('appearances', cascade='all, delete-orphan'), lazy=False),
-    'appearance': relation(Appearance, backref=backref('species', cascade='all, delete-orphan'), lazy=False),
-    'white_picture': relation(Picture, primaryjoin=pictures.c.picture_id==species_appearances.c.white_picture_id),
-    'black_picture': relation(Picture, primaryjoin=pictures.c.picture_id==species_appearances.c.black_picture_id)
-})
-
-pets_mapper = mapper(Pet, pets, properties={
-    'user': relation(User, lazy=False, backref=backref('pets', cascade='all, delete-orphan')),
-    'species_appearance': relation(SpeciesAppearance, lazy=False)
-})
-group_mapper = mapper(Group, groups, properties={
-    'owner': relation(User, backref=backref('owned_groups', cascade='all, delete-orphan')),
-    'default_role': relation(Role, backref=backref
-})

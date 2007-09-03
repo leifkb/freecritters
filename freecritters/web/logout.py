@@ -23,7 +23,7 @@ def logout(req):
         return req.render_template('cant_log_out.html')
     form = LogoutForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
-        req.sess.delete(req.login)
+        req.login.delete()
         req.login = None
         req.user = None
         req.subaccount = None
