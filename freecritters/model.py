@@ -83,6 +83,12 @@ class User(PasswordHolder):
                                'RolePermission.permission_id',
                                'Permission.permission_id')
     pets = ReferenceSet(user_id, 'Pet.user_id')
+    group_memberships = ReferenceSet(user_id, 'GroupMember.user_id')
+    groups = ReferenceSet(user_id,
+                          'GroupMember.user_id',
+                          'GroupMember.group_id',
+                          'Group.group_id')
+    owned_group = Reference(user_id, 'Group.owner_user_id')
     
     def __init__(self, username, password, money=0):
         """Password should be unhashed."""
@@ -663,7 +669,7 @@ class Pet(Base):
     @classmethod
     def find_pet(cls, name):
         """Finds a pet by name or (stringified) pet ID. Returns None if
-        the user doesn't exist.
+        the pet doesn't exist.
         """
         if name.isdigit():
             return cls.get(int(name))
@@ -679,19 +685,64 @@ class Pet(Base):
     
     color = property(_get_color, _set_color)
 
-class Group(object):
+class Group(Base):
     __storm_table__ = 'groups'
+    group_id = Int(primary=True)
+    type = Int(allow_none=False)
+    name = Unicode(allow_none=False)
+    unformatted_name = Unicode(allow_none=False)
+    description = Unicode(allow_none=False)
+    owner_user_id = Int(allow_None=False)
+    owner = Reference(owner_user_id, 'User.user_id')
+    member_count = Int(nullable=False)
+    default_role_id = Int(allow_none=False)
+    default_role = Reference(default_role_id, 'GroupRole.group_role_id')
+    members = ReferenceSet(group_id, 'GroupMember.group_id')
+    member_users = ReferenceSet(group_id,
+                                'GroupMember.group_id',
+                                'GroupMember.user_id',
+                                'User.user_id')
+    special_permissions = ReferenceSet(group_id,
+                                       'SpecialGroupPermission.group_id')
     
     types_names = [u'Club', u'Guild', u'Cult']
+    
+    name_length = 30
+    name_regex = re.compile(
+        ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % name_length)
     
     def __init__(self, type, name, description, owner):
         self.type = type
         self.name = name
         self.description = description
         self.owner = owner
-        self.default_role = GroupRole(self, u'Member')
-        admin_role = GroupRole(self, u'Administrator')
-        GroupMember(self, owner, admin_role)
+        self.member_count = 0
+        self.default_role = GroupRole(self, u'Member').save()
+        admin_role = GroupRole(self, u'Administrator').save()
+        GroupMember(self, owner, admin_role).save()
+    
+    _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
+    @classmethod
+    def unformat_name(self, name):
+        """Removes formatting from a name."""
+        name = self._unformat_name_regex.sub(u'', name)
+        name = name.lower()
+        return name
+
+    def change_name(self, name):
+        self.name = name
+        self.unformatted_name = self.unformat_name(name)
+
+    @classmethod
+    def find_group(cls, name):
+        """Finds a group by name or (stringified) group ID. Returns None if
+        the group doesn't exist.
+        """
+        if name.isdigit():
+            return cls.get(int(name))
+        else:
+            name = cls.unformat_name(name)
+            return cls.find(unformatted_name=name).one()
     
     @classmethod
     def types_can_coexist(cls, type1, type2):
@@ -710,7 +761,17 @@ class Group(object):
     def type_name(self):
         return self.type_names[self.type]
 
-class StandardGroupPermission(object):
+class StandardGroupPermission(Base):
+    __storm_table__ = 'standard_group_permissions'
+    standard_group_permission_id = Int(primary=True)
+    label = Unicode(allow_none=False)
+    title = Unicode(allow_none=False)
+    description = Unicode(allow_none=False)
+    roles = ReferenceSet(standard_group_permission_id,
+                         'GroupRoleStandardPermission.standard_group_permission_id',
+                         'GroupRoleStandardPermission.group_role_id',
+                         'GroupRole.group_role_id')
+                         
     def __init__(self, label, title, description):
         self.label = label
         self.title = title
@@ -724,19 +785,84 @@ class StandardGroupPermission(object):
                 'Group permission labelled %r not found.' % label
         return result
 
-class SpecialGroupPermission(object):
+class SpecialGroupPermission(Base):
+    __storm_table__ = 'special_group_permissions'
+    special_group_permission_id = Int(primary=True)
+    group_id = Int(allow_none=False)
+    group = Reference(group_id, 'Group.group_id')
+    title = Unicode(allow_none=False)
+    roles = ReferenceSet(special_group_permission_id,
+                         'GroupRoleSpecialPermission.special_group_permission_id',
+                         'GroupRoleSpecialPermission.group_role_id',
+                         'GroupRole.group_role_id')
+                         
     def __init__(self, group, title):
         self.group = group
         self.title = title
 
-class GroupRole(object):
+class GroupRole(Base):
+    __storm_table__ = 'group_roles'
+    group_role_id = Int(primary=True)
+    group = Int(allow_none=False)
+    name = Unicode(allow_none=False)
+    standard_permissions = ReferenceSet(group_role_id,
+                                        'GroupRoleStandardPermission.group_role_id',
+                                        'GroupRoleStandardPermission.standard_group_permission_id',
+                                        'StandardGroupPermission.standard_group_permission_id')
+    special_permissions = ReferenceSet(group_role_id,
+                                       'GroupRoleSpecialPermission.group_role_id',
+                                       'GroupRoleSpecialPermission.special_group_permission_id',
+                                       'SpecialGroupPermission.special_group_permission_id')
+    
     def __init__(self, group, name):
         self.group = group
         self.name = name
 
-class GroupMember(object):
+class GroupRoleStandardPermission(Base):
+    __storm_table__ = 'group_role_standard_permissions'
+    __storm_primary__ = 'group_role_id', 'standard_group_permission_id'
+    group_role_id = Int()
+    group_role = Reference(group_role_id, 'GroupRole.group_role_id')
+    standard_group_permission_id = Int()
+    standard_group_permission = Reference(standard_group_permission_id,
+                                          'StandardGroupPermission.standard_group_permission_id')
+
+class GroupRoleSpecialPermission(Base):
+    __storm_table__ = 'group_role_special_permissions'
+    __storm_primary__ = 'group_role_id', 'special_group_permission_id'
+    group_role_id = Int()
+    group_role = Reference(group_role_id, 'GroupRole.group_role_id')
+    special_group_permission_id = Int()
+    special_group_permission = Reference(special_group_permission_id,
+                                          'SpecialGroupPermission.special_group_permission_id')
+
+class GroupMember(Base):
+    __storm_table__ = 'group_member'
+    group_member_id = Int(primary=True)
+    user_id = Int(allow_none=False)
+    user = Reference(user_id, 'User.user_id')
+    group_id = Int(allow_none=False)
+    group = Reference(group_id, 'Group.group_id')
+    group_role_id = Int(allow_none=False)
+    group_role = Reference(group_role_id, 'GroupRole.group_role_id')
+    
     def __init__(self, user, group, group_role):
         assert group_role.group == group
         self.user = user
         self.group = group
         self.group_role = group_role
+
+class Forum(Base):
+    __storm_table__ = 'forum'
+    forum_id = Int(primary=True)
+    group_id = Int()
+    group = Reference(group_id, 'Group.group_id')
+    name = Unicode(allow_none=False)
+    order_num = Int()
+    
+    def __init__(self, name, group=None):
+        self.name = name
+        self.group = group
+        
+    def __storm_flushed__(self):
+        self.order_num = self.forum_id

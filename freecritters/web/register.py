@@ -38,8 +38,12 @@ def register(req):
     form = RegisterForm(req)
     if form.was_filled and not form.errors:
         values = form.values_dict()
+        # We need to find the role before creating the user because looking
+        # for the role flushes the store and causes the user to be INSERTed
+        # with a NULL role_id, triggering an error.
+        default_role = model.Role.find_label(u'default')
         user = model.User(values['username'], values['password']).save()
-        user.role = model.Role.find_label(u'default')
+        user.role = default_role
         login = model.Login(user, None)
         req.store.flush()
         req.login = login

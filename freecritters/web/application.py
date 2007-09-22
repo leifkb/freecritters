@@ -173,7 +173,10 @@ class FreeCrittersApplication(RegexApplication):
         (r'^pets/images/(\d+)/(\d+)/([0-9A-F]{6})(?:\.[a-zA-Z]+)?$', 'freecritters.web.pets.pet_image'),
         (r'^pets/create/(\d+)$', 'freecritters.web.pets.create_pet'),
         (r'^pets$', 'freecritters.web.pets.pet_list'),
-        (r'^pets/create$', 'freecritters.web.pets.species_list')
+        (r'^pets/create$', 'freecritters.web.pets.species_list'),
+        (r'^groups$', 'freecritters.web.groups.groups'),
+        (r'^groups/(\d+)$', 'freecritters.web.groups.group'),
+        (r'^group/list$', 'freecritters.web.group.group_list')
     ]
     
     def __init__(self, environ, start_response,

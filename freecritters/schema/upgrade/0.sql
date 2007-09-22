@@ -118,7 +118,6 @@ CREATE TABLE resized_pictures (
     height INTEGER NOT NULL,
     image BYTEA NOT NULL
 );
-CREATE INDEX idx__resized_pictures__last_used ON resized_pictures (last_used);
 CREATE INDEX idx__resized_pictures__picture_id__width__height ON resized_pictures (picture_id, width, height);
 
 CREATE TABLE species (
@@ -155,12 +154,72 @@ CREATE TABLE pets (
     color_green INTEGER NOT NULL,
     color_blue INTEGER NOT NULL
 );
-CREATE INDEX idx__pets__unformatted_name ON pets (unformatted_name);
 CREATE INDEX idx__pets__user_id ON pets (user_id);
+
+CREATE TABLE groups (
+    group_id SERIAL PRIMARY KEY,
+    type INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    unformatted_name TEXT CONSTRAINT uniq__groups__unformatted_name UNIQUE NOT NULL,
+    owner_user_id INTEGER NOT NULL, -- fkey
+    member_count INTEGER NOT NULL,
+    default_role_id INTEGER NOT NULL -- fkey
+);
+CREATE INDEX idx__groups__default_role_id ON groups (default_role_id);
+
+CREATE TABLE standard_group_permissions (
+    standard_group_permission_id SERIAL PRIMARY KEY,
+    label TEXT CONSTRAINT uniq__standard_group_permissions__label UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL
+);
+
+CREATE TABLE special_group_permissions (
+    special_group_permission_id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL, -- fkey
+    title TEXT NOT NULL
+);
+CREATE INDEX idx__special_group_permissions__group_id ON special_group_permissions (group_id);
+
+CREATE TABLE group_roles (
+    group_role_id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL, -- fkey
+    name TEXT NOT NULL
+);
+CREATE INDEX idx__group_roles__group_id ON group_roles (group_id);
+
+CREATE TABLE group_role_standard_permissions (
+    group_role_id INTEGER, -- fkey
+    standard_group_permission_id INTEGER, -- fkey
+    PRIMARY KEY (group_role_id, standard_group_permission_id)
+);
+
+CREATE TABLE group_role_special_permissions (
+    group_role_id INTEGER,
+    special_group_permission_id INTEGER, -- fkey
+    PRIMARY KEY (group_role_id, special_group_permission_id)
+);
+
+CREATE TABLE group_members (
+    group_member_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL, -- fkey
+    group_id INTEGER NOT NULL, -- fkey
+    group_role_id INTEGER NOT NULL, -- fkey
+    CONSTRAINT uniq__user_id__group_id UNIQUE (user_id, group_id)
+);
+
+CREATE TABLE forums (
+    forum_id SERIAL PRIMARY KEY,
+    group_id INTEGER, -- fkey
+    name TEXT NOT NULL,
+    order_num INTEGER CONSTRAINT uniq__forums__order_num UNIQUE
+);
+CREATE INDEX idx__forums__group_id__order_num ON forums (group_id, order_num);
 
 ALTER TABLE users ADD CONSTRAINT fkey__users__role_id FOREIGN KEY (role_id) REFERENCES roles (role_id);
 ALTER TABLE subaccounts ADD CONSTRAINT fkey__subaccounts__user_id FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE;
 ALTER TABLE logins ADD CONSTRAINT fkey__logins__user_id FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE;
+ALTER TABLE logins ADD CONSTRAINT fkey__logins__subaccount_id FOREIGN KEY (subaccount_id) REFERENCES subaccounts (subaccount_id) ON DELETE CASCADE;
 ALTER TABLE form_tokens ADD CONSTRAINT fkey__form_tokens__user_id FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE;
 ALTER TABLE form_tokens ADD CONSTRAINT fkey__form_tokens__subaccount_id FOREIGN KEY (subaccount_id) REFERENCES subaccounts (subaccount_id) ON DELETE CASCADE;
 ALTER TABLE mail_participants ADD CONSTRAINT fkey__mail_participants__conversation_id FOREIGN KEY (conversation_id) REFERENCES mail_conversations (conversation_id) ON DELETE CASCADE;
@@ -178,3 +237,14 @@ ALTER TABLE species_appearances ADD CONSTRAINT fkey__species_appearances__white_
 ALTER TABLE species_appearances ADD CONSTRAINT fkey__species_appearances__black_picture_id FOREIGN KEY (black_picture_id) REFERENCES pictures (picture_id);
 ALTER TABLE pets ADD CONSTRAINT fkey__pets__user_id FOREIGN KEY (user_id) REFERENCES users (user_id);
 ALTER TABLE pets ADD CONSTRAINT fkey__pets__species_id__appearance_id FOREIGN KEY (species_id, appearance_id) REFERENCES species_appearances (species_id, appearance_id);
+ALTER TABLE groups ADD CONSTRAINT fkey__groups__owner_user_id FOREIGN KEY (owner_user_id) REFERENCES users (user_id) ON DELETE CASCADE;
+ALTER TABLE groups ADD CONSTRAINT fkey__groups__default_role_id FOREIGN KEY (default_role_id) REFERENCES roles (role_id);
+ALTER TABLE special_group_permissions ADD CONSTRAINT fkey__special_group_permissions__group_id FOREIGN KEY (group_id) REFERENCES groups (group_id) ON DELETE CASCADE;
+ALTER TABLE group_roles ADD CONSTRAINT fkey__group_roles__group_id FOREIGN KEY (group_id) REFERENCES groups (group_id) ON DELETE CASCADE;
+ALTER TABLE group_role_standard_permissions ADD CONSTRAINT fkey__group_role_standard_permissions__group_role_id FOREIGN KEY (group_role_id) REFERENCES group_roles (group_role_id) ON DELETE CASCADE;
+ALTER TABLE group_role_standard_permissions ADD CONSTRAINT fkey__group_role_standard_permissions__standard_group_permission_id FOREIGN KEY (standard_group_permission_id) REFERENCES standard_group_permissions (standard_group_permission_id) ON DELETE CASCADE;
+ALTER TABLE group_role_special_permissions ADD CONSTRAINT fkey__group_role_special_permissions__special_group_permission_id FOREIGN KEY (special_group_permission_id) REFERENCES special_group_permissions (special_group_permission_id) ON DELETE CASCADE;
+ALTER TABLE group_members ADD CONSTRAINT fkey__group_members__user_id FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE;
+ALTER TABLE group_members ADD CONSTRAINT fkey__group_members__group_id FOREIGN KEY (group_id) REFERENCES groups (group_id) ON DELETE CASCADE;
+ALTER TABLE group_members ADD CONSTRAINT fkey__group_members__group_role_id FOREIGN KEY (group_role_id) REFERENCES group_roles (group_role_id);
+ALTER TABLE forums ADD CONSTRAINT fkey__forums__group_id FOREIGN KEY (group_id) REFERENCES groups (group_id) ON DELETE CASCADE;
