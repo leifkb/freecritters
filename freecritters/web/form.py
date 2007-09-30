@@ -382,7 +382,7 @@ class Form(object):
     
     And use it like this:
         
-    foo = FooForm(req.form, defaults)
+    foo = FooForm(req, defaults)
     if foo.was_filled and not foo.errors:
         values = foo.values_dict()
         # Do something with values
@@ -393,6 +393,7 @@ class Form(object):
     
     __metaclass__ = FormMeta
     
+    id_prefix = u''
     method = u'post'
     action = u''
     fields = []
@@ -433,7 +434,7 @@ class Form(object):
                     break
         else:
             fields = self.fields
-        for field in self.fields:
+        for field in fields:
             has_value = False
             try:
                 value = field.value_from_raw(data.getlist(field.name), self)
@@ -495,6 +496,7 @@ class Form(object):
         """
         
         result = {}
+        result['id_prefix'] = self.id_prefix
         result['method'] = self.method
         result['action'] = self.action
         result['field_ids'] = []
@@ -502,6 +504,7 @@ class Form(object):
         result['has_errors'] = bool(self.errors)
         for field in self.fields:
             field_data = field.template_context(self)
+            field_data['full_id'] = self.id_prefix + field_data['id']
             result['field_ids'].append(field_data['id'])
             result['fields'][field.id_] = field_data
         return result

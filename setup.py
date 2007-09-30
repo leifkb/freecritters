@@ -12,7 +12,7 @@ setup(
         'console_scripts': [
             'freecritters_run_dev = freecritters.web.run:run_dev',
             'freecritters_run_fcgi = freecritters.web.run:run_fcgi',
-            'freecritters_db_manage = freecritters.dbrepo.manage:manage'
+            'freecritters_db_version = freecritters.db_versioning:main'
         ]
     },
     include_package_data=True,

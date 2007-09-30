@@ -1,0 +1,10 @@
+database:
+    url: ~
+    echo: no
+site:
+    name: Unnamed Site
+http:
+    hostname: localhost
+    port: 8080
+groups:
+    ownable_per_user: 1

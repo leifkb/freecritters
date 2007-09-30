@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from freecritters.web import app
-from freecritters.config import Configuration
+from freecritters.config import config_from_yaml
 import sys
 
 class EnvironAdderMiddleware(object):
@@ -13,25 +13,25 @@ class EnvironAdderMiddleware(object):
         environ.update(self.environ)
         return self.wrapped(environ, start_response)
         
-def load_config():
+def _load_config():
     try:
         filename = sys.argv[1]
     except IndexError:
         sys.stdout.write('Need a config filename.\n')
         sys.exit(1)
-    return Configuration.read_yaml_file(filename)
+    return config_from_yaml(filename)
         
 def run_dev():
-    config = load_config()
+    config = _load_config()
     environ = {'freecritters.config': config}
     
     from colubrid import execute
 
     execute(EnvironAdderMiddleware(app, environ), reload=True,
-            hostname=config.http_hostname, port=config.http_port)
+            hostname=config.http.hostname, port=config.http.port)
 
 def run_fcgi():
-    config = load_config()
+    config = _load_config()
     environ = {'freecritters.config': config}
     
     from flup.server.fcgi import WSGIServer

@@ -5,6 +5,7 @@ from freecritters.web.form import Form, TextField, SubmitButton, PasswordField, 
 from freecritters.web.modifiers import UserModifier, PasswordValidator, \
                                        SubaccountModifier
 from colubrid.exceptions import AccessDenied
+from datetime import datetime, timedelta
 
 class LoginForm(Form):
     method = u'post'
@@ -22,9 +23,13 @@ class LoginForm(Form):
         SubmitButton(title=u'Submit', id_=u'submit')
     ]
 
+
+
 def add_login_cookies(response, login):
-    response.set_cookie('login_id', login.login_id, max_age=90*24*60*60)
-    response.set_cookie('login_code', login.code, max_age=90*24*60*60)
+    max_age = 90*24*60*60 # 90 days
+    expires = datetime.utcnow() + timedelta(seconds=max_age)
+    response.set_cookie('login_id', login.login_id, max_age=max_age, expires=expires)
+    response.set_cookie('login_code', login.code, max_age=max_age, expires=expires)
     
 def login(req):
     if req.login is not None:

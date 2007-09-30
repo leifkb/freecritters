@@ -136,7 +136,9 @@ def help(name):
         Prints this.
 '''.replace('$', name))
 
-def main(argv):
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
     if len(argv) < 2:
         sys.stderr.write('Command is required. Try `%s help`.\n' % argv[0])
         return 1

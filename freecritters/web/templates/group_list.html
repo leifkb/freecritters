@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title "Group list" %}
+
+{% block content %}
+<div class="sortform">
+    {{ render_form_start_tag(sort_form) }}
+    <label for="{{ sort_form.fields.order.full_id }}">Sort by:</label>
+    {{ render_form_field(sort_form.fields.order) }}
+    {{ render_form_field(sort_form.fields.submit) }}
+    </form>
+</div>
+
+{% if groups %}
+<table>
+    <thead>
+        <tr>
+            <th>Group</th>
+            <th>Members</th>
+            <th>Created</th>
+            <th>Type</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group in groups %}
+        <tr>
+            <td class="groupgroupcol">
+                <h3>{{ group.name|e }}</h3>
+                {{ group.description }}
+            </td>
+            <td class="groupmemberscol">{{ group.member_count|e }}</td>
+            <td class="groupcreatedcol">{{ group.created|e }}</td>
+            <td class="grouptypecol">
+                {%- if group.acceptable_type %}<strong>{% endif -%}
+                {{ group.type|e }}
+                {%- if group.acceptable_type %}</strong>{% endif -%}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No groups found.</p>
+{% endif %}
+
+{{ render_paginator_in_box(paginator) }}
+{% endblock %}

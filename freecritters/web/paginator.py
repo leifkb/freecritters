@@ -57,3 +57,6 @@ class Paginator(object):
         else:
             self.next_page_link = None
             self.last_page_link = None
+    
+    def __call__(self, query):
+        return query[self.offset:self.offset+self.limit]

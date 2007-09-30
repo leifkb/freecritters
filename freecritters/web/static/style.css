@@ -343,3 +343,6 @@ li > p:first-child {
 img {
     border: 0 none;
 }
+.sortform {
+    text-align: right;
+}

@@ -5,7 +5,8 @@ from colubrid.server import StaticExports
 from colubrid.exceptions import HttpException, AccessDenied
 from storm.locals import Store
 import os 
-from freecritters.model import ctx, Login, Permission, User, Role, FormToken
+from freecritters.model import ctx, Login, Permission, User, Role, FormToken, \
+                               SpecialGroupPermission, StandardGroupPermission
 from freecritters.web import templates
 from base64 import b64decode
 
@@ -15,7 +16,7 @@ class FreeCrittersRequest(Request):
         super(FreeCrittersRequest, self).__init__(environ, start_response,
                                                   charset)
         self.config = environ['freecritters.config']
-        ctx.store = Store(self.config.db)
+        ctx.store = Store(self.config.database.db)
         self.store = ctx.store
         self._find_login()
     
@@ -74,7 +75,7 @@ class FreeCrittersRequest(Request):
             return False
         if permission is None:
             return True
-        if not isinstance(permission, Permission):
+        if isinstance(permission, basestring):
             permission = Permission.find_label(permission)
         return permission.possessed_by(self.user, self.subaccount)
         
@@ -93,6 +94,18 @@ class FreeCrittersRequest(Request):
         if not self.has_permission(permission):
             raise RSS401()
     
+    def has_group_permission(self, group, permission):
+        if self.user is None:
+            return False
+        if not self.has_permission(u'groups'):
+            return False
+        membership = self.user.find_group_membership(group)
+        if membership is None:
+            return False
+        if permission is None:
+            return True
+        return membership.role.has_permission(permission)
+                
     def form_token(self):
         return self.form_token_object().token
 
@@ -123,7 +136,7 @@ class FreeCrittersRequest(Request):
             new_mail = self.has_permission(u'view_mail') \
                        and self.user.has_new_mail()
             
-        return {'fc': {'site_name': self.config.site_name,
+        return {'fc': {'site_name': self.config.site.name,
                        'unformatted_username': unformatted_username,
                        'user_id': user_id,
                        'username': username,
@@ -176,7 +189,7 @@ class FreeCrittersApplication(RegexApplication):
         (r'^pets/create$', 'freecritters.web.pets.species_list'),
         (r'^groups$', 'freecritters.web.groups.groups'),
         (r'^groups/(\d+)$', 'freecritters.web.groups.group'),
-        (r'^group/list$', 'freecritters.web.group.group_list')
+        (r'^groups/list$', 'freecritters.web.groups.group_list')
     ]
     
     def __init__(self, environ, start_response,
@@ -210,7 +223,7 @@ class FreeCrittersApplication(RegexApplication):
             return FreeCrittersResponse(
                 self.request.render_template_to_string('access_denied.rss'),
                 [('Content-Type', 'application/rss+xml'),
-                 ('WWW-Authenticate', 'Basic realm="' + self.request.config.site_name.encode('utf8') + '"')],
+                 ('WWW-Authenticate', 'Basic realm="' + self.request.config.site.name.encode('utf8') + '"')],
                 status=e.code
             )
         else:

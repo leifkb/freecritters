@@ -2,37 +2,68 @@
 
 from storm.locals import create_database
 import yaml
+import os.path
+
+class ConfigurationError(Exception):
+    pass
 
 class Configuration(object):
     """freeCritters configuration."""
     
-    def __init__(self, db_url, site_name,
-                       http_hostname='localhost', http_port=8080,
-                       db_echo=False):
-        self.db_url = db_url
-        self.site_name = site_name
-        self.db = create_database(db_url)
-        if db_echo:
-            from storm import database
-            database.DEBUG = True
-        self.http_hostname = http_hostname
-        self.http_port = http_port
+    def __init__(self, d):
+        self.__dict__ = d
+
+    def __repr__(self):
+        return 'Configuration(%r)' % self.__dict__
+
+def _process(value):
+    if isinstance(value, str):
+        return value.decode('utf8')
+    elif isinstance(value, dict):
+        d = value
+        for key, value in d.iteritems():
+            d[key] = _process(value)
+        return Configuration(d)
+    elif isinstance(value, list):
+        return [_process(item) for item in value]
+    else:
+        return value
+
+def _merge(defaults, config):
+    result = dict(defaults)
     
-    @classmethod
-    def read_dictionary(cls, dictionary):
-        db_url = dictionary['db url']
-        db_echo = dictionary.get('db echo', False)
-        site_name = dictionary['site name'].decode('utf8')
-        http_hostname = dictionary.get('http hostname', 'localhost')
-        http_port = dictionary.get('http port', 8080)
-        return cls(db_url, site_name, http_hostname, http_port, db_echo)
-        
-    @classmethod
-    def read_yaml(cls, data):
-        return cls.read_dictionary(yaml.load(data))
+    for key, value in config.iteritems():
+        if key in result and isinstance(value, dict) \
+           and isinstance(result[key], dict):
+            result[key] = _merge(result[key], value)
+        else:
+            result[key] = value
+            
+    return _process(result)
+
+def _load_yaml_dict(filename):
+    try:
+        text = open(filename).read()
+    except IOError:
+        raise ConfigurationError('Failed to read configuration file %s.' % filename)
+    data = yaml.safe_load(text)
+    if data is None:
+        return {}
+    elif isinstance(data, dict):
+        return data
+    else:
+        raise ConfigurationError('Configuration file %s: wanted dict, got %s' % type(data).__name__)
     
-    @classmethod
-    def read_yaml_file(cls, f):
-        if isinstance(f, basestring):
-            f = open(f)
-        return cls.read_yaml(f.read())
+_default_filename = os.path.join(os.path.dirname(__file__), 'defaults.yaml')
+_default_dict = _load_yaml_dict(_default_filename)
+
+def config_from_dict(d):
+    config = _merge(_default_dict, d)
+    config.database.db = create_database(config.database.url)
+    if config.database.echo:
+        from storm import database
+        database.DEBUG = True
+    return config
+
+def config_from_yaml(filename):
+    return config_from_dict(_load_yaml_dict(filename))

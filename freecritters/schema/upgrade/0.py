@@ -9,7 +9,8 @@ permissions_to_add = [
     (u'send_mail', u'Send mail',
      u'Allows mail to be sent and replied to.'),
     (u'delete_mail', u'Delete mail', u'Allows mail to be deleted.'),
-    (u'create_pet', u'Create pet', u'Allows pets to be created.')
+    (u'create_pet', u'Create pet', u'Allows pets to be created.'),
+    (u'groups', 'Use groups', u'Allows groups to be used.')
 ]
 
 for data in permissions_to_add:

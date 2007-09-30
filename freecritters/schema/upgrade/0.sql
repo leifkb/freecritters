@@ -161,9 +161,11 @@ CREATE TABLE groups (
     type INTEGER NOT NULL,
     name TEXT NOT NULL,
     unformatted_name TEXT CONSTRAINT uniq__groups__unformatted_name UNIQUE NOT NULL,
+    description TEXT NOT NULL,
     owner_user_id INTEGER NOT NULL, -- fkey
     member_count INTEGER NOT NULL,
-    default_role_id INTEGER NOT NULL -- fkey
+    default_role_id INTEGER NOT NULL, -- fkey
+    created TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
 CREATE INDEX idx__groups__default_role_id ON groups (default_role_id);
 

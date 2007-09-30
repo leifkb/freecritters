@@ -17,7 +17,7 @@ from colorsys import hsv_to_rgb
 from itertools import izip
 
 def create_pet(req, species_id):
-    req.check_permission(None)
+    req.check_permission(u'create_pet')
     species = Species.get(int(species_id))
     if species is None or not species.creatable:
         raise PageNotFound()
@@ -101,7 +101,7 @@ def pet_image(req, species, appearance, color):
     )
     
 def pet_list(req):
-    req.check_permission(None)
+    req.check_permission(u'create_pet')
     pets = []
     for pet in req.user.pets.order_by(Pet.name):
         pets.append({

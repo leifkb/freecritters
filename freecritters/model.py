@@ -150,7 +150,10 @@ class User(PasswordHolder):
         else:
             username = cls.unformat_username(username)
             return cls.find(User.unformatted_username==username).one()
-            
+    
+    def find_group_memnership(self, group):
+        return self.group_memberships.find(group_id==group.group_id).one()
+        
 class Subaccount(PasswordHolder):
     __storm_table__ = 'subaccounts'
     subaccount_id = Int(primary=True)
@@ -697,6 +700,7 @@ class Group(Base):
     member_count = Int(nullable=False)
     default_role_id = Int(allow_none=False)
     default_role = Reference(default_role_id, 'GroupRole.group_role_id')
+    created = DateTime(allow_none=False)
     members = ReferenceSet(group_id, 'GroupMember.group_id')
     member_users = ReferenceSet(group_id,
                                 'GroupMember.group_id',
@@ -720,6 +724,7 @@ class Group(Base):
         self.default_role = GroupRole(self, u'Member').save()
         admin_role = GroupRole(self, u'Administrator').save()
         GroupMember(self, owner, admin_role).save()
+        self.created = datetime.utcnow()
     
     _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
     @classmethod
@@ -746,6 +751,8 @@ class Group(Base):
     
     @classmethod
     def types_can_coexist(cls, type1, type2):
+        if type1 is None or type2 is None:
+            return True
         if type1 > type2:
             type1, type2 = type2, type1
         if type2 == 2:
@@ -817,6 +824,24 @@ class GroupRole(Base):
     def __init__(self, group, name):
         self.group = group
         self.name = name
+    
+    def has_permission(self, permission):
+        if isinstance(permission, basestring):
+            permission = StandardGroupPermission.find_label(permission)
+        if isinstance(permission, StandardGroupPermission):
+            return bool(self.standard_permissions.find(
+                StandardGroupPermission.standard_group_permission_id \
+                    == permission.standard_group_permission_id
+            ).count())
+        elif isinstance(permission, SpecialGroupPermission):
+            return bool(self.special_permissions.find(
+                SpecialGroupPermission.special_group_permission_id \
+                    == permission.special_group_permission_id
+            ).count())
+        elif permission is None:
+            return True
+        else:
+            assert False
 
 class GroupRoleStandardPermission(Base):
     __storm_table__ = 'group_role_standard_permissions'
@@ -837,7 +862,7 @@ class GroupRoleSpecialPermission(Base):
                                           'SpecialGroupPermission.special_group_permission_id')
 
 class GroupMember(Base):
-    __storm_table__ = 'group_member'
+    __storm_table__ = 'group_members'
     group_member_id = Int(primary=True)
     user_id = Int(allow_none=False)
     user = Reference(user_id, 'User.user_id')
