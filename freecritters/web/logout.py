@@ -3,7 +3,6 @@
 from freecritters import model
 from freecritters.web.form import Form, SubmitButton, HiddenField, TextField
 from freecritters.web.modifiers import FormTokenValidator
-from colubrid.exceptions import AccessDenied
 
 class LogoutForm(Form):
     method = u'post'

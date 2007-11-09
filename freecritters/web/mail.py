@@ -12,8 +12,7 @@ from freecritters.web.modifiers import UserModifier, FormTokenValidator, \
                                        HtmlModifier, NotMeValidator
 from freecritters.web.paginator import Paginator
 from freecritters.web.application import FreeCrittersResponse
-from colubrid.utils import MultiDict
-from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
+from freecritters.web.exceptions import Error404, Error403
 from storm.locals import Desc
 from datetime import datetime
 import simplejson
@@ -166,7 +165,7 @@ def send(req):
                               values[u'message'][0], values[u'message'][1]).save()
         req.store.flush()
         req.user.last_inbox_view = datetime.utcnow()
-        redirect(req, HttpFound, conversation_link(conversation).encode('utf8'))
+        req.redirect(eq, HttpFound, conversation_link(conversation).encode('utf8'))
     else:
         if u'preview' in values and form.was_filled and not form.errors:
             preview = values[u'message'][1]
@@ -200,15 +199,11 @@ class DeleteForm(Form):
     
 def conversation(req, conversation_id):
     req.check_permission(u'view_mail')
-    try:
-        conversation_id = int(conversation_id)
-    except ValueError:
-        raise PageNotFound()
     conversation = MailConversation.get(conversation_id)
     if conversation is None:
-        raise PageNotFound()
+        raise Error404()
     if not conversation.can_be_viewed_by(req.user, req.subaccount):
-        raise AccessDenied()
+        raise Error403()
     system = False
     other_participants = []
     for participant in conversation.participants:
@@ -231,7 +226,7 @@ def conversation(req, conversation_id):
         delete_form.action = u'/mail/%s' % conversation.conversation_id
         if delete_form.was_filled and not delete_form.errors:
             participation.delete()
-            redirect(req, HttpFound, '/mail')
+            req.redirect('mail.inbox')
         delete_form = delete_form.generate()
         
     else:
@@ -299,16 +294,12 @@ def conversation(req, conversation_id):
 def reply(req, conversation_id):
     req.check_permission(u'send_mail')
     
-    try:
-        conversation_id = int(conversation_id)
-    except ValueError:
-        raise PagenotFound()
     conversation = MailConversation.get(conversation_id)
     if conversation is None:
-        raise PageNotFound()
+        raise Error404()
     
     if not conversation.can_be_replied_to_by(req.user, req.subaccount):
-        raise AccessDenied()
+        raise Error403()
         
     defaults = {
         u'form_token': req.form_token(),
@@ -325,8 +316,8 @@ def reply(req, conversation_id):
             if participant.user != req.user:
                 participant.last_change = datetime.utcnow()
             participant.deleted = False
-        redirect(req, HttpFound,
-            '/mail/%s?reply_successful=1' % conversation.conversation_id)
+        req.redirect('mail.conversation',
+            conversation_id=conversation_id, reply_successful=1)
             
     if 'preview' in values and reply_form.was_filled \
             and not reply_form.errors:

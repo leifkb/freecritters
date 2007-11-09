@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.web import app
+from freecritters.web import application
 from freecritters.config import config_from_yaml
+from datetime import datetime
 import sys
 
 class EnvironAdderMiddleware(object):
@@ -12,8 +13,12 @@ class EnvironAdderMiddleware(object):
     def __call__(self, environ, start_response):
         environ.update(self.environ)
         return self.wrapped(environ, start_response)
-        
-def _load_config():
+
+def make_environ(config):
+    return {'freecritters.config': config,
+            'freecritters.startup': datetime.utcnow()}
+
+def load_config():
     try:
         filename = sys.argv[1]
     except IndexError:
@@ -25,14 +30,16 @@ def run_dev():
     config = _load_config()
     environ = {'freecritters.config': config}
     
-    from colubrid import execute
-
-    execute(EnvironAdderMiddleware(app, environ), reload=True,
-            hostname=config.http.hostname, port=config.http.port)
+    from werkzeug.serving import run_simple
+    
+    try:
+        run_simple(config.http.hostname, config.http.port,
+                   EnvironAdderMiddleware(application, environ), use_reloader=True)
+    except Exception, e:
+        print e
 
 def run_fcgi():
-    config = _load_config()
-    environ = {'freecritters.config': config}
+    environ = make_environ(load_config())
     
     from flup.server.fcgi import WSGIServer
-    WSGIServer(app, environ=environ).run()
+    WSGIServer(application, environ=environ).run()

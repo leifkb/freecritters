@@ -4,7 +4,7 @@ from freecritters import model
 from freecritters.web.form import Form, TextField, SubmitButton, PasswordField, HiddenField
 from freecritters.web.modifiers import UserModifier, PasswordValidator, \
                                        SubaccountModifier
-from colubrid.exceptions import AccessDenied
+from freecritters.web.exceptions import Error403
 from datetime import datetime, timedelta
 
 class LoginForm(Form):
@@ -33,7 +33,7 @@ def add_login_cookies(response, login):
     
 def login(req):
     if req.login is not None:
-        raise AccessDenied()
+        raise Error403()
     form = LoginForm(req)
     if form.was_filled and not form.errors:
         data = form.values_dict()

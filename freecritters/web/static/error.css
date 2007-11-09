@@ -1,0 +1,26 @@
+body, html {
+    padding: 0;
+    margin: 0;
+    background: white;
+    color: black;
+    font-family: Arial, sans-serif;
+}
+h1 {
+    margin: 0;
+    padding: 0.25em;
+    font-size: 2em;
+    background: #D3DEFF;
+    color: black;
+    font-family: "Gill Sans", "Trebuchet MS", sans-serif;
+    text-align: center;
+    border-bottom: 2px solid red;
+    font-weight: normal;
+}
+p {
+    margin-left: 1em;
+    margin-right: 1em;
+}
+kbd {
+    background: #EEE;
+    color: black;
+}

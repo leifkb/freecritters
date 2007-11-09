@@ -2,4 +2,4 @@
 
 """Web stuff."""
 
-from freecritters.web.application import app
+from freecritters.web.application import application

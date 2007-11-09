@@ -1,0 +1,14 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+
+<html lang="en">
+<head>
+	<title>404 - Not Found</title>
+	<link type="text/css" rel="stylesheet" media="screen,projection" src="{{ fc.url_for('static', f='error.css') }}">
+</head>
+<body>
+    <h1>404 - Not Found</h1>
+    <p>The page you requested, <kbd>{{ fc.request.path|e }}</kbd>, could not be found. If you followed a link here, it may be outdated.</p>
+    <p>You may want to go to the <a href="{{ fc.url_for('home')|e }}">{{ fc.site_name|e }} home page</a>.</p>
+</body>
+</html>

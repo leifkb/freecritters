@@ -1,5 +1,5 @@
 /*
- 
+
 Fix for PNGs in IE 6. Partially based on a script from:
 http://homepage.ntlworld.com/bobosola.
 
@@ -7,7 +7,7 @@ http://homepage.ntlworld.com/bobosola.
 
 var arVersion = navigator.appVersion.split("MSIE");
 var version = parseFloat(arVersion[1]);
-    
+
 function fixPNG (myImage, cloneIfNotIe) {
     if (version >= 5.5 && version < 7 && document.body.filters) {
         var node = document.createElement('span');
@@ -32,12 +32,10 @@ function fixPNG (myImage, cloneIfNotIe) {
 
 addLoadEvent(function() {
     if (version >= 5.5 && version < 7 && document.body.filters) {
-        for (var i = 0; i < document.images.length; i++) {
-            var img = document.images[i];
-            imgName = img.src.toUpperCase();
-            if (imgName.substring(imgName.length-3, imgName.length) == "PNG") {
-                swapDOM(img, fixPNG(img));
-            }
+        var images = document.images;
+        for (var i = images.length-1; i >= 0; i--) {
+            var img = images[i];
+            swapDOM(img, fixPNG(img));
         }
     }
 });

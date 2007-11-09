@@ -1,23 +1,27 @@
 # -*- coding: utf-8 -*-
 
-from colubrid import RegexApplication, HttpResponse, Request
-from colubrid.server import StaticExports
-from colubrid.exceptions import HttpException, AccessDenied
+from werkzeug.wrappers import BaseRequest, BaseResponse
+from werkzeug.routing import Map, Rule
+from werkzeug import routing
+from werkzeug.utils import SharedDataMiddleware
 from storm.locals import Store
 import os 
-from freecritters.model import ctx, Login, Permission, User, Role, FormToken, \
+from freecritters.model import Session, Login, Permission, User, Role, FormToken, \
                                SpecialGroupPermission, StandardGroupPermission
 from freecritters.web import templates
+from freecritters.web.exceptions import Redirect302, Error403, Error401RSS, \
+                                        Error404
+from freecritters.web.urls import urls
 from base64 import b64decode
 
-class FreeCrittersRequest(Request):
-    def __init__(self, environ, start_response, charset='utf-8'):
-        environ['SCRIPT_NAME'] = ''
-        super(FreeCrittersRequest, self).__init__(environ, start_response,
-                                                  charset)
+class Request(BaseRequest):
+    charset = 'utf-8'
+    
+    def __init__(self, environ, url_adapter):
+        super(Request, self).__init__(environ)
         self.config = environ['freecritters.config']
-        ctx.store = Store(self.config.database.db)
-        self.store = ctx.store
+        Session().bind = self.config.database.engine
+        self.url_adapter = url_adapter
         self._find_login()
     
     def _find_login(self):
@@ -26,13 +30,13 @@ class FreeCrittersRequest(Request):
         self.subaccount = None
         if 'login_id' in self.cookies and 'login_code' in self.cookies:
             try:
-                login_id = int(self.cookies['login_id'].value)
+                login_id = int(self.cookies['login_id'])
             except ValueError:
                 return
-            login = Login.get(login_id)
+            login = Login.query.get(login_id)
             if login is None:
                 return
-            if login.code == self.cookies['login_code'].value.decode('ascii'):
+            if login.code == self.cookies['login_code']:
                 self.login = login
                 self.user = login.user
                 self.subaccount = login.subaccount
@@ -53,7 +57,7 @@ class FreeCrittersRequest(Request):
             if user is None:
                 return
             if subaccount_name is not None:
-                subaccount = Subaccount.find(user_id=user.user_id, name=subaccount_name).one()
+                subaccount = Subaccount.filter_by(user_id=user.user_id, name=subaccount_name).one()
                 if subaccount is None:
                     return
                 authenticator = subaccount
@@ -81,18 +85,18 @@ class FreeCrittersRequest(Request):
         
     def check_permission(self, permission):
         """Checks if the user has a given permission (identified as either a
-        Permission object or a label) and raises AccessDenied if not. None
+        Permission object or a label) and raises Error403 if not. None
         can also be used in place of a permission to check whether there
         is a logged-in user at all.
         """
         
         if not self.has_permission(permission):
-            raise AccessDenied()
+            raise Error403()
     
     def check_permission_rss(self, permission):
         """Like check_permission, but suitable for a page containing RSS."""
         if not self.has_permission(permission):
-            raise RSS401()
+            raise Error401RSS()
     
     def has_group_permission(self, group, permission):
         if self.user is None:
@@ -143,7 +147,8 @@ class FreeCrittersRequest(Request):
                        'money': money,
                        'new_mail': new_mail,
                        'subaccount_name': subaccount_name,
-                       'request': self}}
+                       'request': self,
+                       'url_for': self.url_for}}
     
     def render_template_to_string(self, template, context=None, **kwargs):
         if context is None:
@@ -153,89 +158,72 @@ class FreeCrittersRequest(Request):
         return templates.env.get_template(template).render(context)
     
     def render_template(self, template, context=None, **kwargs):
-        return FreeCrittersResponse(self.render_template_to_string(template, context, **kwargs))
-                        
-
-class RSS401(HttpException):
-    code = 401
+        return Response(self.render_template_to_string(template, context, **kwargs))                        
+    
+    def url_for(self, name, **args):
+        return self.url_adapter.build(name, args)
         
-class FreeCrittersApplication(RegexApplication):
+class Response(BaseResponse):
     charset = 'utf-8'
-    urls = [
-        (r'^$', 'freecritters.web.home.home'),
-        (r'^register$', 'freecritters.web.register.register'),
-        (r'^login$', 'freecritters.web.login.login'),
-        (r'^logout$', 'freecritters.web.logout.logout'),
-        (r'^users/(.+)$', 'freecritters.web.profile.profile'),
-        (r'^editprofile$', 'freecritters.web.settings.edit_profile'),
-        (r'^subaccounts$', 'freecritters.web.settings.subaccount_list'),
-        (r'^subaccounts/create$', 'freecritters.web.settings.create_subaccount'),
-        (r'^subaccounts/(\d+)/edit$', 'freecritters.web.settings.edit_subaccount'),
-        (r'^subaccounts/(\d+)/delete$', 'freecritters.web.settings.delete_subaccount'),
-        (r'^subaccounts/(\d+)/change_password$', 'freecritters.web.settings.change_subaccount_password'),
-        (r'^pictures/(\d+)(?:\.[a-zA-Z]+)?$', 'freecritters.web.pictures.picture'),
-        (r'^pictures/(\d+)/([A-Za-z]+)(?:\.[a-zA-Z]+)?$', 'freecritters.web.pictures.picture'),
-        (r'^mail$', 'freecritters.web.mail.inbox'),
-        (r'^rss/mail\.rss$', 'freecritters.web.mail.inbox_rss'),
-        (r'^mail/send$', 'freecritters.web.mail.send'),
-        (r'^mail/(\d+)$', 'freecritters.web.mail.conversation'),
-        (r'^mail/(\d+)/reply$', 'freecritters.web.mail.reply'),
-        (r'^mail/delete$', 'freecritters.web.mail.multi_delete'),
-        (r'^json/pre_mail_message$',
-            'freecritters.web.mail.pre_mail_message_json'),
-        (r'^pets/images/(\d+)/(\d+)/([0-9A-F]{6})(?:\.[a-zA-Z]+)?$', 'freecritters.web.pets.pet_image'),
-        (r'^pets/create/(\d+)$', 'freecritters.web.pets.create_pet'),
-        (r'^pets$', 'freecritters.web.pets.pet_list'),
-        (r'^pets/create$', 'freecritters.web.pets.species_list'),
-        (r'^groups$', 'freecritters.web.groups.groups'),
-        (r'^groups/(\d+)$', 'freecritters.web.groups.group'),
-        (r'^groups/list$', 'freecritters.web.groups.group_list')
-    ]
-    
-    def __init__(self, environ, start_response,
-                 request_class=FreeCrittersRequest):
-        super(FreeCrittersApplication, self).__init__(environ, start_response,
-                                                      request_class)
-    
-    def __iter__(self):
-        # We're doing this here instead of in process_request because
-        # process_http_exception wants an open store too.
-        try:
-            try:
-                response = super(FreeCrittersApplication, self).__iter__()
-            except:
-                self.request.store.rollback()
-                raise
-            else:
-                self.request.store.commit()
-            return response
-        finally:
-            self.request.store.close()
-            del ctx.store
-    
-    def process_http_exception(self, e):
-        if isinstance(e, AccessDenied):
-            return FreeCrittersResponse(
-                self.request.render_template_to_string('access_denied.html'),
-                status=e.code
-            )
-        elif isinstance(e, RSS401):
-            return FreeCrittersResponse(
-                self.request.render_template_to_string('access_denied.rss'),
-                [('Content-Type', 'application/rss+xml'),
-                 ('WWW-Authenticate', 'Basic realm="' + self.request.config.site.name.encode('utf8') + '"')],
-                status=e.code
-            )
-        else:
-            return super(FreeCrittersApplication, self).process_http_exception(e)
-      
-class FreeCrittersResponse(HttpResponse):
-    """HttpResponse with some defaults."""
+    default_mimetype = 'text/html'
+
     def __init__(self, *args, **kwargs):
-        HttpResponse.__init__(self, *args, **kwargs)
-        self['Vary'] = 'Cookie'
-        
+        super(Response, self).__init__(*args, **kwargs)
+        self.headers['Vary'] = 'Cookie'
+
+def _generate_response(req, url_adapter):
+    try:
+        name, args = url_adapter.match(req.path)
+        parts = name.rsplit('.', 1)
+        if len(parts) == 1:
+            module_name = function_name = parts[0]
+        else:
+            module_name, function_name = parts
+        module_name = 'freecritters.web.' + module_name
+        module = __import__(module_name, None, None, [''])
+        function = getattr(module, function_name)
+        for key in args:
+            if key.endswith('__'):
+                del args[key]
+        response = function(req, **args)
+        if response is None:
+            raise Error404()
+    except (routing.NotFound, Error404):
+        response = req.render_template('errors/404.html')
+        response.status = 404
+    except (routing.RequestRedirect, Redirect302), e:
+        response = req.render_template('errors/redirect.html',
+                                       new_url=e.new_url)
+        response.status = 302
+        response.headers['Location'] = e.new_url
+    except Error403:
+        response = req.render_template('errors/403.html')
+        response.status = 403
+    except Error401RSS:
+        response = req.render_template('errors/401.rss')
+        response.status = 401
+        response.headers['Content-Type'] = 'application/rss+xml'
+        response.headers['WWW-Authenticate'] = 'Basic realm="' + self.request.config.site.name.encode('utf8') + '"'
+    return response
+
+def application(environ, start_response):
+    if not environ['PATH_INFO']:
+        environ['PATH_INFO'] = environ['SCRIPT_NAME']
+        environ['SCRIPT_NAME'] = ''
+    url_adapter = urls.bind_to_environ(environ)
+    req = Request(environ, url_adapter)
+    try:
+        try:
+            response = _generate_response(req, url_adapter)
+        except Exception, e:
+            Session().rollback()
+            raise
+        else:
+            Session().commit()
+        return response(environ, start_response)
+    finally:
+        Session.remove()
     
-app = StaticExports(FreeCrittersApplication, { # Switch to the proper egg way!
+application = SharedDataMiddleware(application, {
     '/static': os.path.join(os.path.dirname(__file__), 'static')
 })

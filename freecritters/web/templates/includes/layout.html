@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-{% include "form.html" -%}
-{% include "paginator.html" -%}
-{% include "tabs.html" -%}
+{% include "includes/form.html" -%}
+{% include "includes/paginator.html" -%}
+{% include "includes/tabs.html" -%}
 <html lang="en">
     <head>
         <title>{% filter e|capture('title') %}{% block title "" %}{% endfilter %} on {{ fc.site_name|e }}</title>
