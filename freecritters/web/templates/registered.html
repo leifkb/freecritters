@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
 {% block title "Register" %}
 {% block content %}
-<p>Welcome to {{ fc.site_name|e }}, {{ username|e }}. You've been registered and logged in. Would you like to visit the <a href="/">home page</a>?</p>
+<p>Welcome to {{ fc.site_name|e }}, {{ username|e }}. You've been registered and logged in. Would you like to visit the <a href="{{ fc.url('home')|e }}">home page</a>?</p>
 {% endblock %}

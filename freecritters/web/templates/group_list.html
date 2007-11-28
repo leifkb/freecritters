@@ -11,29 +11,32 @@
 </div>
 
 {% if groups %}
-<table>
+<table class="normal">
     <thead>
         <tr>
             <th>Group</th>
-            <th>Members</th>
-            <th>Created</th>
             <th>Type</th>
+            <th>Members</th>
+            <th>Owner</th>
+            <th>Created</th>
         </tr>
     </thead>
     <tbody>
         {% for group in groups %}
+        {% set acceptable_type = group.can_coexist_with(max_group_type) -%}
         <tr>
-            <td class="groupgroupcol">
-                <h3>{{ group.name|e }}</h3>
-                {{ group.description }}
+            <td class="groupgroupcol dedicatedtolink">
+                <h3><a href="#">{{ group.name|e }}</a></h3>
+                {{ group.rendered_description }}
+            </td>
+            <td class="grouptypecol">
+                {%- if acceptable_type %}<strong>{% endif -%}
+                {{ group.type_name|e }}
+                {%- if acceptable_type %}</strong>{% endif -%}
             </td>
             <td class="groupmemberscol">{{ group.member_count|e }}</td>
-            <td class="groupcreatedcol">{{ group.created|e }}</td>
-            <td class="grouptypecol">
-                {%- if group.acceptable_type %}<strong>{% endif -%}
-                {{ group.type|e }}
-                {%- if group.acceptable_type %}</strong>{% endif -%}
-            </td>
+            <td class="groupownercol dedicatedtolink"><a href="{{ fc.url('profile', username=group.owner.unformatted_username) }}">{{ group.owner.username|e }}</a></td>
+            <td class="groupcreatedcol">{{ group.created|datetime|e }}</td>
         </tr>
         {% endfor %}
     </tbody>

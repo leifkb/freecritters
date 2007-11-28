@@ -2,23 +2,24 @@
 <rss version="2.0">
     <channel>
         <title>{{ fc.site_name|e }} mail</title>
-        <link>{{ "/mail"|absolute_url }}</link>
+        <link>{{ fc.url('mail.inbox')|e }}</link>
         <description>{{ fc.username|e }}'s mail on {{ fc.site_name|e }}.</description>
         <pubDate>{{ last_change|rsstimestamp|e }}</pubDate>
         <lastBuildDate>{{ last_change|rsstimestamp|e }}</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>freeCritters</generator>
-        {% for message in messages %}
+        {%- for message in messages %}
+        {%- set message_url = '%s%s%s'|format(fc.url('mail.conversation', None, True, conversation_id=message.conversation_id), '#mailmessage', message.message_id) %}
         <item>
             <title>
                 {{- message.subject|e -}}
-                {% if message.username != none %} from {{ message.username|e }}{% endif -%}
+                {% if message.user != none %} from {{ message.user.username|e }}{% endif -%}
             </title>
             <description>{{ message.message|e }}</description>
-            <link>{{ "/mail/"|absolute_url }}{{ message.conversation_id|e }}#mailmessage{{ message.id|e }}</link>
+            <link>{{ message_url|e }}</link>
             <pubDate>{{ message.sent|rsstimestamp|e }}</pubDate>
-            <guid>{{ "/mail/"|absolute_url }}{{ message.conversation_id|e }}#mailmessage{{ message.id|e }}</guid>
+            <guid>{{ message_url|e }}</guid>
         </item>
-        {% endfor %}
+        {%- endfor %}
     </channel>
 </rss>

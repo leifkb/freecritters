@@ -14,7 +14,7 @@
     <textarea name="{{ field.name|e }}" id="{{ field.full_id|e }}" rows="{{ field.rows|e }}" cols="{{ field.cols|e }}">{{ field.value|e }}</textarea>
     {%- endif %}
     {%- if field.type == "SelectMenu" -%}
-    <select name="{{ field.name|e }}">
+    <select name="{{ field.name|e }}" id="{{ field.full_id|e }}">
     {%- for option in field.options -%}
     <option value="{{ option.value|e }}"{% if option.value == field.value %} selected="selected"{% endif %}>
     {{- option.caption|e -}}

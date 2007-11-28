@@ -1,4 +1,4 @@
-{% set pet_tabs = Tabs([
-    ('/pets', 'Pets'),
-    ('/pets/create', 'Create pet')
-]) %}
+{% set pet_tabs = Tabs(
+    Tab('Pets', 'pets.pet_list'),
+    Tab('Create pet', 'pets.species_list')
+) %}

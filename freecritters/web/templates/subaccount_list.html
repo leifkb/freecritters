@@ -1,12 +1,14 @@
 {% extends "layout.html" %}
+{% include "settings_tabs.html" %}
 {% block title "Subaccounts" %}
+{% block tabs render_tabs(settings_tabs) %}
 {% block content %}
 
 {% if deleted %}
 <p class="formsuccessful">Subaccount deleted.</p>
 {% endif %}
 {% if password_changed %}
-<p class="formsuccessful">Subaccount's password changed.</p>
+<p class="formsuccessful">Subaccount password changed.</p>
 {% endif %}
 {% if created %}
 <p class="formsuccessful">Subaccount created</p>
@@ -17,12 +19,10 @@ account with limited capabilities. This is useful if, for instance, you want
 to let a friend take care of your pets while you're away, but you don't want
 them to be able to read your mail or anything else.</p>
 
-<p>Would you like to <a href="/subaccounts/create">create a subaccount</a>?</p>
-
 {% if subaccounts %}
 <ul>
     {% for subaccount in subaccounts %}
-    <li>{{ subaccount.name|e }} <a href="/subaccounts/{{ subaccount.id|e }}/edit">(edit)</a> <a href="/subaccounts/{{ subaccount.id|e }}/change_password">(change password)</a> <a href="/subaccounts/{{ subaccount.id|e }}/delete">(delete)</a></li>
+    <li>{{ subaccount.name|e }} <a href="{{ fc.url('settings.edit_subaccount', subaccount_id=subaccount.subaccount_id)|e }}">(edit)</a> <a href="{{ fc.url('settings.change_subaccount_password', subaccount_id=subaccount.subaccount_id)|e }}">(change password)</a> <a href="{{ fc.url('settings.delete_subaccount', subaccount_id=subaccount.subaccount_id)|e }}">(delete)</a></li>
     {% endfor %}
 </ul>
 {% endif %}

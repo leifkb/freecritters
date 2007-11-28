@@ -1,5 +1,7 @@
 {% extends "layout.html" %}
+{% include "settings_tabs.html" %}
 {% block title %}Editing subaccount: {{ subaccount_name|e }}{% endblock %}
+{% block tabs render_tabs(settings_tabs) %}
 {% block content %}
 {% if updated %}
 <p class="formsuccessful">Subaccount edited successfully.</p>

@@ -1,25 +1,37 @@
 {% extends "layout.html" %}
-{% block title %}Mail: {{ subject|e }}{% endblock %}
+{% include "mail_tabs.html" %}
+{% block title %}Mail: {{ conversation.subject|e }}{% endblock %}
 
 {% block head %}
-<script src="/static/mailconversation.js" type="text/javascript"></script>
+<script src="{{ fc.url('static', fn='mailconversation.js')|e }}" type="text/javascript"></script>
 {% endblock %}
+
+{% block tabs render_tabs(mail_tabs) %}
 
 {% block content %}
 
 <script type="text/javascript">
-var expanded = {{ expanded }};
-var collapsed = {{ collapsed }};
+var expanded = {{ expanded|jsonencode }};
+var collapsed = {{ collapsed|jsonencode }};
 </script>
 
 {% if reply_successful %}
 <p class="formsuccessful">Replied sucessfully.</p>
 {% endif %}
 
-{% if system %}
+{% if conversation.system %}
 <p>This is a system-generated message.</p>
 {% else %}
-<p id="conversationheader">Conversation between you and {% for participant in other_participants %}{% if not loop.first %}, {% endif %}<a href="{{ participant.link|e(true) }}">{{ participant.username|e }}</a>{% endfor %}.</p>
+<p id="conversationheader">Conversation between you and 
+    {% set first = true -%}
+    {%- for participant in conversation.participants -%}
+    {%- if participant != participation -%}
+    {%- if not first -%}, {% endif -%}
+    {%- set first = false -%}
+    <a href="{{ fc.url('profile', username=participant.user.unformatted_username)|e }}">{{ participant.user.username|e }}</a>
+    {%- endif %}
+    {%- endfor -%}
+.</p>
 {% endif %}
 
 {% if delete_form %}
@@ -27,9 +39,9 @@ var collapsed = {{ collapsed }};
 {% endif %}
 
 {% for message in messages %}
-<div class="mailmessage" id="mailmessage{{ message.id|e }}">
-<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ message.sender.link|e(true) }}">{{ message.sender.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ message.quote_link|e }}" onclick="quote('message', {{ message.quote_jsstring|e(true) }}); return false;">quote</a>{% endif %}</p>
-<div class="mailmessagebody">{{ message.message }}</div>
+<div class="mailmessage" id="mailmessage{{ message.message_id|e }}">
+<p class="mailmessageheader">Sent {{ message.sent|datetime|e }} by <a href="{{ fc.url('profile', username=message.user.unformatted_username)|e }}">{{ message.user.username|e }}</a>{% if reply_form %} &ndash; <a href="{{ fc.url('mail.conversation', conversation_id=conversation.conversation_id, quote=message.message_id)|e }}" onclick="quote('message', {{ message.message|jsonencode|e }}); return false;">quote</a>{% endif %}</p>
+<div class="mailmessagebody">{{ message.rendered_message }}</div>
 </div>
 {% endfor %}
 

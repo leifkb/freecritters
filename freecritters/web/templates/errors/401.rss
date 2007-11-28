@@ -2,13 +2,13 @@
 <rss version="2.0">
    <channel>
       <title>Please log in to {{ fc.site_name|e }}</title>
-      <link>{{ "/"|absolute_url }}</link>
+      <link>{{ fc.url('home')|e }}</link>
       <description>You need to log in to view this feed.</description>
       <generator>freeCritters</generator>
       <item>
          <title>Please log in to {{ fc.site_name|e }}</title>
-         <link>{{ "/login"|absolute_url }}</link>
-         <guid>{{ "/login"|absolute_url }}</guid>
+         <link>{{ fc.url('login')|e }}</link>
+         <guid>{{ fc.url('login')|e }}</guid>
       </item>
    </channel>
 </rss>

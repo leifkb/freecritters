@@ -1,0 +1,5 @@
+{% extends "layout.html" %}
+{% block title %}{{ group.type_name }}: {{ group.name|e }}{% endblock %}
+{% block content %}
+{{ group.rendered_description }}
+{% endblock %}

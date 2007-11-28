@@ -1,5 +1,7 @@
 {% extends "layout.html" %}
+{% include "settings_tabs.html" %}
 {% block title %}Delete subaccount: {{ name|e }}{% endblock %}
+{% block tabs render_tabs(settings_tabs) %}
 {% block content %}
 <p>Are you sure you want to delete this subaccount? (If not, just go to another page.)</p>
 {{ render_form(form) }}

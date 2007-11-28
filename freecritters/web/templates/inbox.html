@@ -1,45 +1,53 @@
 {% extends "layout.html" %}
+{% include "mail_tabs.html" %}
 
 {% block title "Inbox" %}
 
 {% block head %}
-<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="/rss/mail.rss">
+<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="{{ fc.url('mail.inbox_rss')|e }}">
 {% endblock %}
 
-{% block content %}
-<p>Here's your inbox.{% if can_send %} Would you like to <a href="/mail/send">send a message</a>?{% endif %}</p>
+{% block tabs render_tabs(mail_tabs) %}
 
-{% if not conversations %}
+{% block content %}
+<p>Here's your inbox, which contains all of your mail conversations.</p>
+{% if not participations %}
 <p><strong>You don't have any mail.</strong></p>
 {% else %}
 {% if can_delete %}
-<form action="/mail/delete" method="post">
+<form action="{{ fc.url('mail.multi_delete')|e }}" method="post">
 <div>
 <input type="hidden" name="form_token" value="{{ form_token|e }}">
-<input type="hidden" name="page" value="{{ paginator.page_num|e }}">
+<input type="hidden" name="page" value="{{ paginator.page|e }}">
 </div>
 {% endif %}
 <table class="normal mailtable">
 <thead>
 <tr>
 {% if can_delete %}<th class="maildelcolumn">Del</th>{% endif %}
-<th class="maildelcolumn">Subject</th>
+<th class="mailsubjectcolumn">Subject</th>
 <th class="mailwithcolumn">With</th>
 </tr>
 </thead>
 <tbody>
-{% for conversation in conversations %}
-<tr{% if conversation.new %} class="newmail"{% endif %}>
-{% if can_delete %}<td class="maildelcolumn"><input type="checkbox" name="del" value="{{ conversation.id|e }}"></td>{% endif %}
-<td class="mailsubjectcolumn">{% if conversation.new %}<strong>{% endif %}<a href="{{ conversation.link|e }}">{{ conversation.subject|e }}</a>{% if conversation.new %}</strong>{% endif %}</td>
-<td class="mailwithcolumn">
-{% if conversation.other_participants == none %}
+{% for participation in participations -%}
+{% set conversation = participation.conversation -%}
+<tr{% if participation.is_new %} class="newmail"{% endif %}>
+{% if can_delete %}<td class="maildelcolumn"><input type="checkbox" name="del" value="{{ conversation.conversation_id|e }}"></td>{% endif %}
+<td class="mailsubjectcolumn dedicatedtolink">{% if participation.is_new %}<strong>{% endif %}<a href="{{ fc.url('mail.conversation', conversation_id=conversation.conversation_id)|e }}">{{ conversation.subject|e }}</a>{% if participation.is_new %}</strong>{% endif %}</td>
+<td class="mailwithcolumn dedicatedtolink">
+{%- if conversation.system -%}
 <em>system-generated</em>
-{% else %}
-{% for participant in conversation.other_participants %}{%
-if not loop.first %}, {% endif %}<a href="{{ participant.link|e }}">{{ participant.username|e }}</a>
-{% endfor %}
-{% endif %}
+{%- else -%}
+{%- set first = true -%}
+{% for participant in conversation.participants -%}
+{%- if participant != participation -%}
+{%- if not first -%}, {% endif -%}
+{%- set first = false -%}
+<a href="{{ fc.url('profile', username=participant.user.unformatted_username)|e }}">{{ participant.user.username|e }}</a>
+{%- endif -%}
+{%- endfor -%}
+{%- endif -%}
 </td>
 </tr>
 {% endfor %}

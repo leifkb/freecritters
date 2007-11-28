@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+{% include "form.html" -%}
+{% include "paginator.html" -%}
+{% include "tabs.html" -%}
+<html lang="en">
+    <head>
+        <title>{% filter e|capture('title') %}{% block title "" %}{% endfilter %} on {{ fc.site_name|e }}</title>
+        <link rel="stylesheet" media="screen,projection" type="text/css"
+              href="{{ fc.url('static', fn='style.css')|e }}">
+        <script src="{{ fc.url('urls.urls_js')|e }}" type="text/javascript"></script>
+        <script type="text/javascript">{{ fc.url_routing_js }}</script>
+        <script src="{{ fc.url('static', fn='MochiKit.js')|e }}" type="text/javascript"></script>
+        <!--[if lt IE 7]>
+        <script type="text/javascript">IE7_PNG_SUFFIX = "";</script>
+        <script src="{{ fc.url('static', fn='ie7-standard-p.js')|e }}" type="text/javascript"></script>
+        <![endif]-->
+        <script src="{{ fc.url('static', fn='pngfix.js')|e }}" type="text/javascript"></script>
+        <script src="{{ fc.url('static', fn='colorselector.js')|e }}" type="text/javascript"></script>
+        <script src="{{ fc.url('static', fn='global.js')|e }}" type="text/javascript"></script>
+        {% block head "" %}
+    </head>
+    <body>
+        <div id="header">
+            <h1><img src="{{ fc.url('static', fn='logo.png')|e }}" alt="{{ fc.site_name|e }}"></h1>
+
+            <div id="logininfo">
+                {% if fc.username == none -%}
+                <div>Not logged in.</div>
+                <div><a href="{{ fc.url('login')|e }}">Log in</a> or <a href="{{ fc.url('register')|e }}">Register</a></div>
+                {%- else -%}
+                <div>Logged in as <a href="{{ fc.url('profile', username=fc.unformatted_username)|e }}">{{ fc.username|e }}</a>{% if fc.subaccount_name != none %} ({{ fc.subaccount_name|e }}){% endif %}, &curren;{{ fc.money|intformat|e }}</div>
+                <div><a href="{{ fc.url('logout')|e }}">Log out</a>, <a href="{{ fc.url('settings.edit_profile')|e }}">preferences</a></div>
+                {%- endif %}
+            </div>
+
+            <div class="clearhack">&nbsp;</div>
+        </div>
+        <ul id="nav">
+            <li><a href="{{ fc.url('home')|e }}">Home</a></li
+           ><li>{% if fc.new_mail %}<strong>{% endif %}<a href="{{ fc.url('mail.inbox')|e }}">Mail</a>{% if fc.new_mail %}</strong>{% endif %}</li
+           ><li><a href="{{ fc.url('pets.pet_list')|e }}">Pets</a></li
+        ></ul>
+        <div id="main">
+            <h2 id="contenttitle">{{ title }}</h2>
+            {% block tabs "" %}
+            <div id="content">
+                {% block content "" %}
+                <div class="clearhack">&nbsp;</div>
+            </div>
+        </div>
+    </body>
+</html>

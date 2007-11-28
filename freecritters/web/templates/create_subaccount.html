@@ -1,5 +1,7 @@
 {% extends "layout.html" %}
+{% include "settings_tabs.html" %}
 {% block title "Create subaccount" %}
+{% block tabs render_tabs(settings_tabs) %}
 {% block content %}
 {{ render_form(form) }}
 {% endblock %}

@@ -1,12 +1,14 @@
 {% extends "layout.html" %}
+{% include "mail_tabs.html" %}
 {% block title "Send mail" %}
 {% block head %}
-<script src="/static/mailsend.js" type="text/javascript"></script>
+<script src="{{ fc.url('static', fn='mailsend.js')|e }}" type="text/javascript"></script>
 {% endblock %}
+{% block tabs render_tabs(mail_tabs) %}
 {% block content %}
 <div id="premailmessagecontainer">
-{% if pre_mail_message %}
-<div class="premailmessage"><h3>{{ username|e }} says:</h3>{{ pre_mail_message }}</div>
+{% if user %}
+<div class="premailmessage"><h3>{{ user.username|e }} says:</h3>{{ user.rendered_pre_mail_message }}</div>
 {% endif %}
 </div>
 
