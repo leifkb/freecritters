@@ -38,6 +38,16 @@ addLoadEvent(function() {
         addToggliness(expanded[i]);
     }
     if (collapsed.length > 0) {
-        $('conversationheader').innerHTML += " You can click on collapsed messages' headers to expand them.";
+        $('conversationheader').innerHTML += " You can click on collapsed messages' headers to expand them. ";
+        var expand_all_link = A({href: "#"}, "Expand all");
+        connect(expand_all_link, 'onclick', function(ev) {
+            var elements = getElementsByTagAndClassName(null, 'collapsed');
+            for (var i = 0; i < elements.length; i++) { 
+                removeElementClass(elements[i], 'collapsed');
+                addElementClass(elements[i], 'expanded');
+            }
+            ev.preventDefault();
+        });
+        $('conversationheader').appendChild(expand_all_link);
     }
 });

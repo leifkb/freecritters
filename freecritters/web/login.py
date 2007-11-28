@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 class LoginForm(Form):
     method = u'post'
-    action = u'/login'
+    action = 'login'
     fields = [
         TextField(u'user', u'Username',
                   max_length=model.User.username_length,
@@ -37,7 +37,8 @@ def login(req):
     form = LoginForm(req)
     if form.was_filled and not form.errors:
         data = form.values_dict()
-        login = model.Login(data['user'], data['subaccount']).save()
+        login = model.Login(data['user'], data['subaccount'])
+        model.Session.save(login)
         req.login = login
         req.user = login.user
         req.subaccount = login.subaccount

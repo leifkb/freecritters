@@ -1,7 +1,7 @@
-var CROSSHAIRS_LOCATION = '/static/crosshairs.png';
-var HUE_SLIDER_LOCATION = '/static/hueslider.png';
-var HUE_SLIDER_ARROWS_LOCATION = '/static/huesliderposition.png';
-var SAT_VAL_SQUARE_LOCATION = '/static/satvalsquare.png';
+var CROSSHAIRS_LOCATION = url_for('static', {fn: 'crosshairs.png'});
+var HUE_SLIDER_LOCATION = url_for('static', {fn: 'hueslider.png'});
+var HUE_SLIDER_ARROWS_LOCATION = url_for('static', {fn: 'huesliderposition.png'});
+var SAT_VAL_SQUARE_LOCATION = url_for('static', {fn: 'satvalsquare.png'});
 
 var arVersion = navigator.appVersion.split("MSIE");
 var version = parseFloat(arVersion[1]);

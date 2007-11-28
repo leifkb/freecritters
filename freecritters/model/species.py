@@ -10,7 +10,7 @@ class Species(object):
     def can_be_created(self):
         if not self.creatable:
             return False
-        return bool(self.appearances.flter(creatable=True)[:1].count())
+        return bool(self.appearances.filter(creatable=True)[:1].count())
     
     @classmethod
     def find_creatable(cls):
@@ -19,5 +19,4 @@ class Species(object):
             species_appearances.c.species_id==species.c.species_id,
             species_appearances.c.appearance_id==appearances.c.appearance_id,
             appearances.c.creatable==True,
-            func.count(species_appearances.c.species_appearance_id) > 0,
-        )).group_by([species.c.species_id])
+        )).group_by(list(species.c))

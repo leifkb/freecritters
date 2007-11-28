@@ -1,7 +1,10 @@
 from freecritters.model.util import PasswordHolder
 from freecritters.model.tables import users, mail_participants
+from freecritters.model import mailparticipant
+from freecritters.textformats import render_plain_text
 from sqlalchemy import and_
 import re
+from datetime import datetime
 
 class User(PasswordHolder):
     username_length = 20
@@ -41,14 +44,15 @@ class User(PasswordHolder):
         self.username = username
         self.unformatted_username = self.unformat_username(username)
         
-    def render_pre_mail_message(self):
+    @property
+    def rendered_pre_mail_message(self):
         if self.pre_mail_message is None:
             return None
         else:
             return render_plain_text(self.pre_mail_message, 3)
         
     def has_new_mail(self):
-        last_mail_change = MailParticipant.query.filter(and_(
+        last_mail_change = mailparticipant.MailParticipant.query.filter(and_(
             mail_participants.c.user_id==self.user_id,
             mail_participants.c.deleted==False
         )).max(mail_participants.c.last_change) 
@@ -67,7 +71,7 @@ class User(PasswordHolder):
             return cls.query.get(int(username))
         else:
             username = cls.unformat_username(username)
-            return cls.query.filter(users.c.unformatted_username==username).one()
+            return cls.query.filter(users.c.unformatted_username==username).first()
     
     def find_group_memnership(self, group):
-        return self.group_memberships.filter(group_id==group.group_id).one()
+        return self.group_memberships.filter(group_id==group.group_id).first()

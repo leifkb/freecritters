@@ -136,6 +136,7 @@ subaccount_permissions = Table('subaccount_permissions', metadata,
 pictures = Table('pictures', metadata,
     Column('picture_id', Integer, primary_key=True),
     Column('added', DateTime(timezone=False), nullable=False),
+    Column('last_change', DateTime(timezone=False), nullable=False),
     Column('name', Unicode, nullable=False),
     Column('copyright', Unicode, nullable=False),
     Column('description', Unicode, nullable=False),
@@ -183,8 +184,9 @@ species_appearances = Table('species_appearances', metadata,
            ForeignKey('pictures.picture_id', name='fkey__species_appearances__white_picture_id'),
            nullable=False),
     Column('black_picture_id', Integer,
-           ForeignKey('pictures.picture_id', name='fkey__species_appearances__white_picture_id'),
+           ForeignKey('pictures.picture_id', name='fkey__species_appearances__black_picture_id'),
            nullable=False),
+    Column('last_change', DateTime(timezone=False), nullable=False),
     UniqueConstraint('species_id', 'appearance_id', name='uniq__species_appearances__species_id__appearance_id')    
 )
 Index('idx__species_appearances__species_id__appearance_id',
@@ -198,28 +200,24 @@ pets = Table('pets', metadata,
     Column('name', Unicode, nullable=False),
     Column('unformatted_name', Unicode, nullable=False),
     Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__pets__user_id'), nullable=False),
-    Column('species_id', Integer, nullable=False),
-    Column('appearance_id', Integer, nullable=False),
+    Column('species_appearance_id', Integer, ForeignKey('species_appearances.species_appearance_id', name='fkey__pets__species_appearance_id'), nullable=False),
     Column('color_red', Integer, nullable=False),
     Column('color_green', Integer, nullable=False),
     Column('color_blue', Integer, nullable=False),
-    ForeignKeyConstraint(['species_id', 'appearance_id'],
-                         ['species_appearances.species_id', 'species_appearances.appearance_id'],
-                         name='fkey__pets__species_id__appearance_id'),
     UniqueConstraint('unformatted_name', name='uniq__pets__unformatted_name')
 )
 Index('idx__pets__user_id', pets.c.user_id)
 
 groups = Table('groups', metadata,
     Column('group_id', Integer, primary_key=True),
+    Column('created', DateTime, nullable=False),
     Column('type', Integer, nullable=False),
     Column('name', Unicode, nullable=False),
+    Column('unformatted_name', Unicode, nullable=False),
     Column('description', Unicode, nullable=False),
     Column('owner_user_id', Integer, _foreign_key('users.user_id', name='fkey__groups__owner_user_id'), nullable=False),
     Column('member_count', Integer, nullable=False),
-    Column('default_role_id', Integer,
-           _foreign_key('group_roles.group_role_id', name='fkey__groups__default_role_id'),
-           nullable=False)
+    UniqueConstraint('unformatted_name', name='uniq__groups__unformatted_name')
 )
 Index('idx__groups__type', groups.c.type)
 Index('idx__groups__name', groups.c.name)
@@ -245,9 +243,10 @@ Index('idx__special_group_permissions__group_id', special_group_permissions.c.gr
 group_roles = Table('group_roles', metadata,
     Column('group_role_id', Integer, primary_key=True),
     Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__group_roles__group_id'), nullable=False),
-    Column('name', Unicode, nullable=False)
+    Column('name', Unicode, nullable=False),
+    Column('is_default', Boolean, nullable=False),
 )
-Index('idx__group_roles__group_id', group_roles.c.group_id)
+Index('idx__group_roles__group_id__is_default', group_roles.c.group_id, group_roles.c.is_default)
 
 group_role_standard_permissions = Table('group_role_standard_permissions', metadata,
     Column('group_role_id', Integer,
@@ -273,8 +272,7 @@ group_members = Table('group_members', metadata,
     Column('group_member_id', Integer, primary_key=True),
     Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__group_members__user_id'), nullable=False),
     Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__group_members__group_id'), nullable=False),
-    Column('group_role_id', Integer,
-           ForeignKey('group_roles.group_role_id', name='fkey__group_members__group_role_id'),
+    Column('group_role_id', Integer,_foreign_key('group_roles.group_role_id', 'fkey__group_members__group_role_id'),
            nullable=False),
     UniqueConstraint('user_id', 'group_id', name='uniq__group_members__user_id__group_id')
 )

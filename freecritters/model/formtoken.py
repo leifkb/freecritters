@@ -1,5 +1,7 @@
 from freecritters.model.tables import form_tokens
 from sqlalchemy import and_
+from datetime import datetime, timedelta
+import uuid
 
 class FormToken(object):
     def __init__(self, user, subaccount=None):
@@ -39,7 +41,7 @@ class FormToken(object):
             subaccount_clause = form_tokens.c.subaccount_id==None
         else:
             subaccount_clause = form_tokens.c.subaccount_id==subaccount.subaccount_id
-        form_token = cls.filter(and_(
+        form_token = cls.query.filter(and_(
             form_tokens.c.user_id==user.user_id,
             subaccount_clause,
             form_tokens.c.creation_time>=min_creation_time,

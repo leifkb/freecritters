@@ -1,5 +1,5 @@
-import datetime
 import re
+from datetime import datetime
 
 class Pet(object):
     name_length = 20
@@ -7,13 +7,14 @@ class Pet(object):
         ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % name_length)
     
     def __init__(self, name, user, species, appearance, color):
+        self.species_appearance = species.species_appearances.filter_by(
+            appearance_id=appearance.appearance_id
+        ).first()
         self.created = datetime.utcnow()
         self.change_name(name)
         self.user = user
-        self.species = species
-        self.appearance = appearance
         self.color = color
-    
+        
     _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
     @classmethod
     def unformat_name(self, name):
@@ -35,7 +36,7 @@ class Pet(object):
             return cls.query.get(int(name))
         else:
             name = cls.unformat_name(name)
-            return cls.query.filter_by(unformatted_name=name).one()
+            return cls.query.filter_by(unformatted_name=name).first()
     
     def _set_color(self, color):
         self.color_red, self.color_green, self.color_blue = color
@@ -48,7 +49,7 @@ class Pet(object):
     def _set_species(self, species):
         self.species_appearance = species.species_appearances.filter_by(
             appearance_id=self.appearance.appearance_id
-        ).one()
+        ).first()
     
     def _get_species(self):
         return self.species_appearance.species
@@ -58,7 +59,7 @@ class Pet(object):
     def _set_appearance(self, appearance):
         self.species_appearance = appearance.species_appearances.filter_by(
             species_id=self.species.species_id
-        ).one()
+        ).first()
     
     def _get_appearance(self):
         return self.species_appearance.appearance

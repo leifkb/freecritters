@@ -6,7 +6,8 @@ class GroupRole(object):
     def __init__(self, group, name):
         self.group = group
         self.name = name
-    
+        self.is_default = False
+        
     def has_permission(self, permission):
         if isinstance(permission, basestring):
             permission = StandardGroupPermission.find_label(permission)

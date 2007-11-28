@@ -13,7 +13,7 @@ addLoadEvent(function(ev) {
             if ($('appearance')) {
                 appearance_id = $('appearance').value;
             }
-            var url = '/pets/images/' + species_id + '/' + appearance_id + '/' + color + '.png';
+            var url = url_for('pets.pet_image', {species_id: species_id, appearance_id: appearance_id, color: color});
             image = new Image();
             image.id = 'petpreviewimg';
             connect(image, 'onload', function(ev) {

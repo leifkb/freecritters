@@ -4,7 +4,7 @@
 
 from datetime import datetime, timedelta
 from freecritters.web.form import Modifier, ValidationError
-from freecritters.model import User, Subaccount, FormToken, Pet, Appearance
+from freecritters.model import User, Subaccount, FormToken, Pet, Appearance, Group
 from freecritters.textformats import render_html
 
 class UsernameNotTakenValidator(Modifier):
@@ -54,7 +54,7 @@ class AppearanceModifier(Modifier):
             value = int(value)
         except ValueError:
             raise ValidationError(self.message)
-        appearance = Appearance.get(value)
+        appearance = Appearance.query.get(value)
         if appearance is None:
             raise ValidationError(self.message)
         return appearance
@@ -74,7 +74,7 @@ class SubaccountModifier(Modifier):
             return None
         else:
             user = form.modified_values[self.user_field]
-            subaccount = Subaccount.find(user_id=user.user_id, name=value).one()
+            subaccount = Subaccount.query.filter_by(user_id=user.user_id, name=value).first()
             if subaccount is None:
                 raise ValidationError(self.message)
             return subaccount
@@ -90,9 +90,8 @@ class SubaccountNameNotTakenValidator(Modifier):
         
     def modify(self, value, form):
         user = form.req.user
-        for subaccount in user.subaccounts:
-            if subaccount.name == value:
-                raise ValidationError(self.message)
+        if user.subaccounts.filter_by(name=value)[:1].count():
+            raise ValidationError(self.message)
         return value
         
 class PasswordValidator(Modifier):
@@ -139,6 +138,7 @@ class FormTokenValidator(Modifier):
         form_token = FormToken.find_form_token(value, form.req.user, form.req.subaccount)
         if form_token is None:
             raise ValidationError(self.message)
+        return value
             
 class HtmlModifier(Modifier):
     def __init__(self, message=u"Couldn't parse your text: %s"):
@@ -160,5 +160,29 @@ class NotMeValidator(Modifier):
         
     def modify(self, value, form):
         if form.req.user == value:
+            raise ValidationError(self.message)
+        return value
+
+class GroupNameNotTakenValidator(Modifier):
+    """Validates that a group name isn't taken."""
+
+    def __init__(self, message=u'That name is taken.'):
+        self.message = message
+
+    def modify(self, value, form):
+        if Group.find_group(value) is not None:
+            raise ValidationError(self.message)
+        return value
+
+class GroupTypeCompatibilityValidator(Modifier):
+    """Validates that a group type is compatible with the user's current
+    groups.
+    """
+    def __init__(self, message=u"That group type is incompatible with a group you've already joined."):
+        self.message = message
+    
+    def modify(self, value, form):
+        max_group_type = form.req.user.group_memberships.join('group').max(Group.type)
+        if not Group.types_can_coexist(int(value), max_group_type):
             raise ValidationError(self.message)
         return value

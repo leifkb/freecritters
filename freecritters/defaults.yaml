@@ -6,5 +6,9 @@ site:
 http:
     hostname: localhost
     port: 8080
+    reload: yes
+debug:
+    tracebacks: no
+    evalex: no
 groups:
     ownable_per_user: 1

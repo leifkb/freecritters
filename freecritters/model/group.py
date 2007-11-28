@@ -1,19 +1,29 @@
 import re
+from freecritters.textformats import render_plain_text
+from freecritters.model.session import Session
+from datetime import datetime
 
 class Group(object):
     name_length = 30
     name_regex = re.compile(
         ur'^(?=.{1,%s}$)[ _-]*[A-Za-z][A-Za-z0-9 _-]*$' % name_length)
-    
+    max_description_length = 500
+    type_names = [u'Club', u'Guild', u'Cult']
+
     def __init__(self, type, name, description, owner):
+        from freecritters.model.groupmember import GroupMember
+        from freecritters.model.grouprole import GroupRole
         self.type = type
-        self.name = name
+        self.change_name(name)
         self.description = description
         self.owner = owner
         self.member_count = 0
-        self.default_role = GroupRole(self, u'Member')
+        default_role = GroupRole(self, u'Member')
+        default_role.is_default = True
+        Session.save(default_role)
         admin_role = GroupRole(self, u'Administrator')
-        GroupMember(self, owner, admin_role)
+        Session.save(admin_role)
+        Session.save(GroupMember(owner, self, admin_role))
         self.created = datetime.utcnow()
     
     _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
@@ -37,7 +47,7 @@ class Group(object):
             return cls.query.get(int(name))
         else:
             name = cls.unformat_name(name)
-            return cls.filter_by(unformatted_name=name).one()
+            return cls.query.filter_by(unformatted_name=name).first()
     
     @classmethod
     def types_can_coexist(cls, type1, type2):
@@ -57,3 +67,7 @@ class Group(object):
     @property
     def type_name(self):
         return self.type_names[self.type]
+    
+    @property
+    def rendered_description(self):
+        return render_plain_text(self.description, 5)

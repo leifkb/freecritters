@@ -6,7 +6,7 @@ class Permission(object):
         
     @classmethod
     def find_label(cls, label, allow_none=False):
-        result = cls.query.filter_by(label=label).one()
+        result = cls.query.filter_by(label=label).first()
         if not allow_none:
             assert result is not None, \
                 'Permission labelled %r not found.' % label

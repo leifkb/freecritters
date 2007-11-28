@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.model import ctx, Picture
-from freecritters.web.application import FreeCrittersResponse
-from colubrid.exceptions import PageNotFound, AccessDenied
+from freecritters.model import Picture
+from freecritters.web.application import Response
 
 sizes = {
     'full': None,
@@ -13,18 +12,18 @@ def picture(req, picture_id, size='full'):
     try:
         size = sizes[size]
     except KeyError:
-        raise PageNotFound()
+        return None
         
-    picture = Picture.get(int(picture_id))
+    picture = Picture.query.get(int(picture_id))
     if picture is None:
-        raise PageNotFound()
-        
+        return None
+    
+    req.check_modified(picture.last_change)
+    
     if size is None:
-        image = picture.image
+        image = str(picture.image)
     else:
-        image = picture.resized_within(*size).image
+        image = str(picture.resized_within(*size).image)
         
-    return FreeCrittersResponse(
-        image,
-        [('Content-Type', picture.mime_type)]
-    )
+    return Response(image, mimetype=picture.mime_type) \
+           .last_modified(picture.last_change)

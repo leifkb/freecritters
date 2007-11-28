@@ -3,60 +3,55 @@
 from math import ceil
 from urllib import urlencode
 
-def _urlencode_utf8(args):
-    return urlencode([(key, val.encode('utf8')) for key, val in args])
-
 class Paginator(object):
-    def __init__(self, req, items, page_size=25, query_argument='page'):
-        self.page_size = self.limit = page_size
-        self.num_pages = max(1, int(ceil(float(items) / page_size)))
-        self.page_box_maxlength = len(str(self.num_pages))
-        self.page_box_size = self.page_box_maxlength + 1
-        self.query_argument = query_argument
+    def __init__(self, page_size=25, argument='page'):
+        self.page_size = page_size
+        self.argument = 'page'
         
-        if query_argument in req.args:
-            if req.args[query_argument] == '_':
-                page_num = self.num_pages
-            else:
-                try:
-                    page_num = int(req.args[query_argument])
-                except ValueError:
-                    page_num = 1
-        else:
-            page_num = 1
-        self.page_num = min(self.num_pages, max(1, page_num))
+    def __call__(self, req, query, row_count=None):
+        if row_count is None:
+            row_count = query.count()
+        page_count = max(1, int(ceil(float(row_count) / self.page_size)))
         
-        self.offset = self.page_size * (self.page_num - 1)
-        self.kwargs = {'limit': self.limit, 'offset': self.offset}
+        try:
+            page = int(req.args[self.argument])
+        except (KeyError, ValueError):
+            page = 1
+        if page < 1:
+            page = page_count + page
+        page = max(1, page)
+        page = min(page_count, page)
         
-        args = []
+        offset = self.page_size * (page - 1)
+        query = query[offset:offset+self.page_size]
+        
+        return PaginatorResults(req, self, page_count, page, query)
+        
+class PaginatorResults(object):
+    def __init__(self, req, paginator, page_count, page, query):
+        self.req = req
+        self.paginator = paginator
+        self.page_count = page_count
+        self.page = page
+        self.query = query
+        
+        for method in ['all', 'one', 'first', 'count']:
+            setattr(self, method, getattr(query, method))
+        
+        self.path = req.environ.get('SCRIPT_NAME', '').rstrip('/') + '/' + \
+                    req.environ['PATH_INFO'].lstrip('/')
+        self.args = []
         for key, vals in req.args.lists():
-            if key == query_argument:
+            if key == paginator.argument:
                 continue
             for val in vals:
-                args.append((key, val))
-
-        url = req.environ['PATH_INFO']
+                self.args.append((key, val))
         
-        self.args = args
+    def page_url(self, page_num):
+        args = self.args[:]
+        args.append((self.paginator.argument, unicode(page_num)))
+        encoded_args = self.req.urlencode(args)
+        return self.path + '?' + encoded_args
         
-        if self.page_num > 1:
-            self.prev_page_link = '%s?%s' % (url, _urlencode_utf8(args +
-                [(query_argument, unicode(self.page_num - 1))]))
-            self.first_page_link = '%s?%s' % (url, _urlencode_utf8(args +
-                [(query_argument, u'1')]))
-        else:
-            self.prev_page_link = None
-            self.first_page_link = None
-        
-        if self.page_num < self.num_pages:
-            self.next_page_link = '%s?%s' % (url, _urlencode_utf8(args +
-                [(query_argument, unicode(self.page_num + 1))]))
-            self.last_page_link = '%s?%s' % (url, _urlencode_utf8(args +
-                [(query_argument, unicode(self.num_pages))]))
-        else:
-            self.next_page_link = None
-            self.last_page_link = None
-    
-    def __call__(self, query):
-        return query[self.offset:self.offset+self.limit]
+    def __iter__(self):
+        return self.query.__iter__()

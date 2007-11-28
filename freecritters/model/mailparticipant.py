@@ -1,5 +1,6 @@
 from freecritters.model.session import Session
 from freecritters.model.tables import mail_participants
+from datetime import datetime
 
 class MailParticipant(object):    
     def __init__(self, conversation, user, system=False):
@@ -16,11 +17,15 @@ class MailParticipant(object):
             if not participant.deleted:
                 break
         else:
-            Session().delete(self.conversation)
+            Session.delete(self.conversation)
+    
+    @property
+    def is_new(self):
+        return self.last_view is None or self.last_change > self.last_view
 
     @classmethod
     def find(cls, user, user2=None, system=None):
-        result = self.query.filter_by(user_id==user.user_id, deleted=False)
+        result = cls.query.filter_by(user_id=user.user_id, deleted=False)
         if system is not None:
             result = result.filter_by(system=system)
         if user2 is not None:

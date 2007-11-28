@@ -9,11 +9,10 @@ from freecritters.web.form import Form, TextField, IntegerModifier, \
 from freecritters.web.modifiers import UsernameNotTakenValidator
 from freecritters.web.login import add_login_cookies
 import time
-from colubrid.exceptions import AccessDenied
 
 class RegisterForm(Form):
     method = u'post'
-    action = u'/register'
+    action = 'register'
     fields = [
         TextField(u'username', u'Username',
                   max_length=model.User.username_length,
@@ -34,7 +33,7 @@ class RegisterForm(Form):
 
 def register(req):
     if req.user is not None:
-        raise AccessDenied()
+        raise Error403()
     form = RegisterForm(req)
     if form.was_filled and not form.errors:
         values = form.values_dict()
@@ -42,10 +41,11 @@ def register(req):
         # for the role flushes the store and causes the user to be INSERTed
         # with a NULL role_id, triggering an error.
         default_role = model.Role.find_label(u'default')
-        user = model.User(values['username'], values['password']).save()
+        user = model.User(values['username'], values['password'])
         user.role = default_role
+        model.Session.save(user)
         login = model.Login(user, None)
-        req.store.flush()
+        model.Session.save(login)
         req.login = login
         req.user = login.user
         response = req.render_template('registered.html', username=values['username'])

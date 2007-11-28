@@ -3,6 +3,9 @@ class Redirect302(Exception):
         self.new_url = new_url
         Exception.__init__(self, new_url)
 
+class Error304(Exception):
+    pass
+
 class Error401RSS(Exception):
     pass
 

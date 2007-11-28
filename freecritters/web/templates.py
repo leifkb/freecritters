@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 
 from jinja import Environment, PackageLoader
-from jinja.filters import stringfilter, simplefilter
+from jinja.filters import stringfilter, simplefilter, do_escape
+from jinja.datastructure import Markup
+from freecritters.web.tabs import Tabs, Tab
 from freecritters.web.util import absolute_url
-from freecritters.web.tabs import Tabs
 from datetime import datetime
+from werkzeug.utils import get_current_url
+from urlparse import urljoin
 
 env = Environment(loader=PackageLoader('freecritters', 'web/templates'))
 
 @stringfilter
-def do_intformat(n):    
+def do_intformat(n):
     n = unicode(n)
     groups = []
     if len(n) % 3 != 0:
@@ -36,4 +39,10 @@ def do_rsstimestamp(ts):
     return ts.strftime('%a, %d %B %Y %H:%M:%S GMT')
 env.filters['rsstimestamp'] = do_rsstimestamp
 
+def do_my_escape():
+    return do_escape(True)
+env.filters['e'] = do_my_escape
+env.filters['escape'] = do_my_escape
+
 env.globals['Tabs'] = Tabs
+env.globals['Tab'] = Tab

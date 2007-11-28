@@ -1,34 +1,37 @@
 # -*- coding: utf-8 -*-
 
-from freecritters.model import Pet, Species, SpeciesAppearance, Appearance
-from freecritters.web.application import FreeCrittersResponse
+from freecritters.model import \
+    Session, Pet, Species, SpeciesAppearance, Appearance, pets, species, \
+    appearances, species_appearances
+from freecritters.web.application import Response
 from freecritters.web.form import Form, TextField, SelectMenu, ColorSelector, \
                                   SubmitButton, RegexValidator, HiddenField
 from freecritters.web.modifiers import FormTokenValidator, \
                                        PetNameNotTakenValidator, \
                                        AppearanceModifier
-from freecritters.web.links import species_appearance_color_image_link, pet_image_link
 import ImageColor
-from freecritters.web.util import redirect
-from colubrid.exceptions import PageNotFound, HttpFound
 from cStringIO import StringIO
 import random
 from colorsys import hsv_to_rgb
 from itertools import izip
+from sqlalchemy import and_
 
 def create_pet(req, species_id):
     req.check_permission(u'create_pet')
-    species = Species.get(int(species_id))
+    species = Species.query.get(species_id)
     if species is None or not species.creatable:
-        raise PageNotFound()
-    appearances = list(species.appearances.find(creatable=True) \
-                      .order_by(Appearance.name))
-    if not appearances:
-        raise PageNotFound()
+        return None
+    appearance_list = Appearance.query.filter(and_(
+        species_appearances.c.species_id==species.c.species_id,
+        species_appearances.c.appearance_id==appearances.c.appearance_id,
+        appearances.c.creatable==True
+    )).order_by(appearances.c.name).all()
+    if not appearance_list:
+        return None
         
     class CreatePetForm(Form):
         method = u'post'
-        action = u'/pets/create/%s' % species_id
+        action = 'pets.create_pet', dict(species_id=species_id)
         fields = [
             HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
             TextField(u'pet_name', u'Name',
@@ -40,10 +43,10 @@ def create_pet(req, species_id):
                                                         u'start with a number.'),
                                  PetNameNotTakenValidator()])
         ]
-        if len(appearances) > 1:
+        if len(appearance_list) > 1:
             appearance_options = [
                 (appearance.appearance_id, appearance.name)
-                for appearance in appearances
+                for appearance in appearance_list
             ]
             fields.append(SelectMenu(u'appearance', u'Appearance',
                                      options=appearance_options,
@@ -58,61 +61,41 @@ def create_pet(req, species_id):
         u'color': (255, 0, 0)
     }
     form = CreatePetForm(req, defaults)
-    
+
     values = form.values_dict()
-    if u'appearance' in values:
-        appearance = values[u'appearance']
-    else:
-        appearance = appearances[0] # Hooray for arbitrariness!
+    appearance = values.get(u'appearance', appearance_list[0])
         
     if form.was_filled and not form.errors and u'preview' not in values:
-        Pet(values[u'pet_name'], req.user, species, appearance, values[u'color']).save()
-        redirect(req, HttpFound, '/pets?created=1')
+        pet = Pet(values[u'pet_name'], req.user, species, appearance, values[u'color'])
+        Session.save(pet)
+        req.redirect('pets.pet_list', created=1)
     else:
-        context = {
-            'species_name': species.name,
-            'species_id': species.species_id,
-            'initial_appearance_id': appearance.appearance_id,
-            'image': species_appearance_color_image_link(
-                species.species_id, appearance.appearance_id, values.get(u'color', (255, 0, 0))
-            ),
-            'form': form.generate()
-        }
-        return req.render_template('create_pet_form.html', context)
+        return req.render_template('create_pet_form.html',
+            species=species,
+            appearance=appearance,
+            color=values[u'color'],
+            form=form.generate())
         
-def pet_image(req, species, appearance, color):
-    try:
-        species = int(species)
-        appearance = int(appearance)
-        color = ImageColor.getrgb('#' + color)
-    except ValueError:
-        raise PageNotFound()
-    species_appearance = SpeciesAppearance.find(
-        species_id=species, appearance_id=appearance
-    ).one()
+def pet_image(req, species_id, appearance_id, color):
+    species_appearance = SpeciesAppearance.query.filter_by(
+        species_id=species_id, appearance_id=appearance_id
+    ).first()
     if species_appearance is None:
-        raise PageNotFound()
+        return None
+    last_change = max(species_appearance.last_change,
+                      species_appearance.white_picture.last_change,
+                      species_appearance.black_picture.last_change)
+    req.check_modified(last_change)
     image = species_appearance.pil_image_with_color(color)
     io = StringIO()
     image.save(io, 'PNG')
-    return FreeCrittersResponse(
-        io.getvalue(),
-        [('Content-Type', 'image/png')]
-    )
-    
+    return Response(io.getvalue(), mimetype='image/png') \
+           .last_modified(last_change)
+
 def pet_list(req):
     req.check_permission(u'create_pet')
-    pets = []
-    for pet in req.user.pets.order_by(Pet.name):
-        pets.append({
-            'image': pet_image_link(pet),
-            'name': pet.name,
-            'appearance': pet.appearance.name,
-            'species': pet.species.name,
-            'color': pet.color,
-        })
     return req.render_template('pet_list.html',
-        pets=pets,
+        pets=req.user.pets.order_by(pets.c.unformatted_name).all(),
         created='created' in req.args
     )
 
@@ -124,15 +107,15 @@ def color_wheel(n):
         
 def species_list(req):
     req.check_permission(None)
-    species_ctx = []
+    items = []
     lst = list(Species.find_creatable())
     random.shuffle(lst)
-    colors = list(color_wheel(len(lst)))
+    colors = color_wheel(len(lst))
     for species, color in izip(lst, colors):
-        appearance = random.choice([appearance for appearance in species.appearances if appearance.creatable])
-        species_ctx.append({
-            'name': species.name,
-            'link': u'/pets/create/%s' % species.species_id,
-            'image': species_appearance_color_image_link(species, appearance, color)
+        appearance = random.choice([sa for sa in species.species_appearances.filter(Appearance.creatable==True)]).appearance
+        items.append({
+            'species': species,
+            'appearance': appearance,
+            'color': color
         })
-    return req.render_template('species_list.html', species=species_ctx)
+    return req.render_template('species_list.html', items=items)

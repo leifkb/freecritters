@@ -2,18 +2,17 @@
 
 from freecritters.web.form import Form, HiddenField, TextArea, SelectMenu, \
                                   SubmitButton, LengthValidator, TextField, \
-                                  CheckBox, PasswordField, SameAsValidator
+                                  CheckBox, PasswordField, SameAsValidator, \
+                                  BlankToNoneModifier
 from freecritters.web.modifiers import FormTokenValidator, HtmlModifier, \
                                        SubaccountNameNotTakenValidator, \
                                        CurrentPasswordValidator
-from freecritters.model import User, Subaccount, Permission, \
-                               SubaccountPermission
-from freecritters.web.util import redirect
-from colubrid.exceptions import AccessDenied, HttpFound, PageNotFound
+from freecritters.model import User, Subaccount, Permission, Session
+from freecritters.web.exceptions import Error403
 
 class EditProfileForm(Form):
     method = u'post'
-    action = u'/editprofile'
+    action = 'settings.edit_profile'
     fields = [
         HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
         TextArea(u'profile', u'Profile',
@@ -22,8 +21,9 @@ class EditProfileForm(Form):
                  u'A short plain-text message which will be shown '
                  u'before anyone sends you mail.',
                  rows=5,
-                 modifiers=[LengthValidator( \
-                     max_len=User.pre_mail_message_max_length)]),
+                 modifiers=[
+                     LengthValidator(max_len=User.pre_mail_message_max_length),
+                     BlankToNoneModifier()]),
         SubmitButton(title=u'Update', id_=u'submit')
     ]
 
@@ -31,20 +31,15 @@ def edit_profile(req):
     req.check_permission(u'edit_profile')
     defaults = {
         u'form_token': req.form_token(),
-        u'profile': (req.user.profile, req.user.rendered_profile)
+        u'profile': (req.user.profile, req.user.rendered_profile),
+        u'premailmessage': req.user.pre_mail_message
     }
-    if req.user.pre_mail_message is not None:
-        defaults['premailmessage'] = req.user.pre_mail_message
     form = EditProfileForm(req, defaults)
     context = {'form': form.generate()}
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        req.user.profile = values[u'profile'][0]
-        req.user.rendered_profile = values[u'profile'][1]
-        if values[u'premailmessage'].isspace() or not values[u'premailmessage']:
-            req.user.pre_mail_message = None
-        else:
-            req.user.pre_mail_message = values['premailmessage']
+        req.user.profile, req.user.rendered_profile = values[u'profile']
+        req.user.pre_mail_message = values[u'premailmessage']
         context['updated'] = True
     return req.render_template('edit_profile.html', context)
 
@@ -58,7 +53,7 @@ def subaccount_permission_fields(user):
         ))
     return fields
 
-def permission_ids_from_values(values):
+def permissions_from_values(values):
     for key, value in values.iteritems():
         if key.startswith(u'perm'):
             try:
@@ -66,18 +61,13 @@ def permission_ids_from_values(values):
             except ValueError:
                 continue
             if value:
-                yield perm_id
+                yield Permission.query.get(perm_id)
     
 def subaccount_list(req):
     req.check_permission(None)
     if req.subaccount is not None:
-        raise AccessDenied()
-    subaccounts = []
-    for subaccount in req.user.subaccounts:
-        subaccounts.append({
-            'id': subaccount.subaccount_id,
-            'name': subaccount.name
-        })
+        raise Error403()
+    subaccounts = req.user.subaccounts.order_by(Subaccount.name).all()
     context = {
         'subaccounts': subaccounts
     }
@@ -89,11 +79,11 @@ def subaccount_list(req):
 def create_subaccount(req):
     req.check_permission(None)
     if req.subaccount is not None:
-        raise AccessDenied()
+        raise Error403()
         
     class CreateSubaccountForm(Form):
         method = u'post'
-        action = u'/subaccounts/create'
+        action = 'settings.create_subaccount'
         fields = [
             HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
             TextField(u'name', u'Name',
@@ -110,26 +100,26 @@ def create_subaccount(req):
     form = CreateSubaccountForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        subaccount = Subaccount(req.user, values['name'],
-                                values['password']).save()
-        for permission_id in permission_ids_from_values(values):
-            subaccount.permissions.add(Permission.get(permission_id))
-        redirect(req, HttpFound, '/subaccounts?created=1')
+        subaccount = Subaccount(req.user, values[u'name'], values[u'password'])
+        Session.save(subaccount)
+        for permission in permissions_from_values(values):
+            subaccount.permissions.append(permission)
+        req.redirect('settings.subaccount_list', created=1)
     else:
-        context = {u'form': form.generate()}
-        return req.render_template('create_subaccount.html', context)
+        return req.render_template('create_subaccount.html',
+            form=form.generate())
         
 def edit_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
-        raise AccessDenied()
-    subaccount = Subaccount.get(int(subaccount_id))
+        raise Error403()
+    subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
-        raise PageNotFound()
+        return None
         
     class EditSubaccountForm(Form):
         method = u'post'
-        action = u'/subaccounts/%s/edit' % subaccount_id
+        action = 'settings.edit_subaccount', dict(subaccount_id=subaccount_id)
         reliable_field = u'form_token'
         fields = [
             HiddenField(u'form_token', modifiers=[FormTokenValidator()])
@@ -139,19 +129,19 @@ def edit_subaccount(req, subaccount_id):
     
     defaults = {u'form_token': req.form_token()}
     for permission in subaccount.permissions:
-        defaults[u'perm' + unicode(permission.permission_id)] = True
+        defaults[u'perm%s' % permission.permission_id] = True
         
     form = EditSubaccountForm(req, defaults)
     if form.was_filled and not form.errors:
         values = form.values_dict()
-        current_ids = set(subaccount.permissions.values(SubaccountPermission.permission_id))
-        selected_ids = set(permission_ids_from_values(values))
-        deleted = current_ids - selected_ids
-        added = selected_ids - current_ids
-        for deleted_id in deleted:
-            subaccount.permissions.remove(Permission.get(deleted_id))
-        for added_id in added:
-            subaccount.permissions.add(Permission.get(added_id))
+        current_perms = set(subaccount.permissions)
+        selected_perms = set(permissions_from_values(values))
+        deleted_perms = current_perms - selected_perms
+        added_perms = selected_perms - current_perms
+        for deleted_perm in deleted_perms:
+            subaccount.permissions.remove(deleted_perm)
+        for added_perm in added_perms:
+            subaccount.permissions.append(added_perm)
         context = {'updated': True}
     else:
         context = {'updated': False}
@@ -169,16 +159,16 @@ class SubaccountDeleteForm(Form):
 def delete_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
-        raise AccessDenied()
-    subaccount = Subaccount.get(int(subaccount_id))
+        raise Error403()
+    subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
-        raise PageNotFound()
+        return None
         
     form = SubaccountDeleteForm(req, {u'form_token': req.form_token()})
-    form.action = '/subaccounts/%s/delete' % subaccount.subaccount_id
+    form.action = 'settings.delete_subaccount', dict(subaccount_id=subaccount_id)
     if form.was_filled and not form.errors:
-        subaccount.delete()
-        redirect(req, HttpFound, '/subaccounts?deleted=1')
+        Session.delete(subaccount)
+        req.redirect('settings.subaccount_list', deleted=1)
     else:
         context = {
             u'form': form.generate(),
@@ -204,23 +194,23 @@ class SubaccountPasswordChangeForm(Form):
 def change_subaccount_password(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
-        raise AccessDenied()
+        raise Error403
         
-    subaccount = Subaccount.get(int(subaccount_id))
+    subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
-        raise PageNotFound()
+        return None
     
     defaults = {
         u'form_token': req.form_token()
     }
         
     form = SubaccountPasswordChangeForm(req, defaults)
-    form.action = '/subaccounts/%s/change_password' % subaccount.subaccount_id
+    form.action = 'settings.change_subaccount_password', dict(subaccount_id=subaccount.subaccount_id)
     
     if form.was_filled and not form.errors:
         values = form.values_dict()
         subaccount.change_password(values[u'new_password'])
-        redirect(req, HttpFound, u'/subaccounts?password_changed=1')
+        req.redirect('settings.subaccount_list', password_changed=1)
     else:
         context = {
             'form': form.generate(),

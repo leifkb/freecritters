@@ -140,7 +140,22 @@ class RegexValidator(Modifier):
         if self.regex.search(value) is None:
             raise ValidationError(self.message)
         return value
-        
+
+class BlankToNoneModifier(Modifier):
+    """Transforms a blank (empty or all-spaces) string into None."""
+    
+    def modify(self, value, form):
+        if not value or value.isspace():
+            return None
+        else:
+            return value
+    
+    def unomdify(self, value, form):
+        if value is None:
+            return u''
+        else:
+            return value
+
 class ColorModifier(Modifier):
     """Modifies a color name or hex string into an (r, g, b) tuple, where
     all values are in the range 0-255.
@@ -372,7 +387,7 @@ class Form(object):
     
     class FooForm(Form):
         method = u'post'
-        action = u'/path/to/me'
+        action = 'some_endpoint', {'some': 'args'}
         fields = [
             TextField(u'name', u'Name'),
             TextField(u'age', u'Age', modifiers=[IntegerModifier(),
@@ -495,10 +510,16 @@ class Form(object):
         a Jinja template.
         """
         
+        if isinstance(self.action, basestring):
+            endpoint = self.action
+            args = {}
+        else:
+            endpoint, args = self.action
+        real_action = self.req.url_for(endpoint, args)
         result = {}
         result['id_prefix'] = self.id_prefix
         result['method'] = self.method
-        result['action'] = self.action
+        result['action'] = real_action
         result['field_ids'] = []
         result['fields'] = {}
         result['has_errors'] = bool(self.errors)

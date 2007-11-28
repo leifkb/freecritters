@@ -6,7 +6,7 @@ from freecritters.web.modifiers import FormTokenValidator
 
 class LogoutForm(Form):
     method = u'post'
-    action = u'/logout'
+    action = 'logout'
     fields = [
         HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
         SubmitButton(title=u'Yes', id_=u'submit')
@@ -22,7 +22,7 @@ def logout(req):
         return req.render_template('cant_log_out.html')
     form = LogoutForm(req, {u'form_token': req.form_token()})
     if form.was_filled and not form.errors:
-        req.login.delete()
+        model.Session.delete(req.login)
         req.login = None
         req.user = None
         req.subaccount = None

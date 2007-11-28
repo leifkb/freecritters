@@ -1,3 +1,5 @@
+from datetime import datetime
+
 class MailMessage(object):
     def __init__(self, conversation, user, message, rendered_message):
         self.conversation = conversation

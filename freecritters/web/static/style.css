@@ -7,7 +7,7 @@ body {
     padding-top: 5px;
     padding-left: 100px;
     padding-right: 1em;
-    background: url(/static/headbg.png) white repeat-x bottom;
+    background: url(headbg.png) white repeat-x bottom;
     min-height: 67px;
 }
 #header h1 {
@@ -118,6 +118,11 @@ a:hover {
     border: 3px solid red;
     padding: 0.25em;
 }
+caption {
+    font-weight: bold;
+    margin-bottom: 0.25em;
+    font-size: 1.1em;
+}
 table.normal {
     border: 1px solid #CCC;
     border-collapse: collapse;
@@ -144,20 +149,22 @@ table.normal td {
     border-left: 0 none;
     border-right: 0 none;
 }
+.oddrow, .oddrow td {
+    background: #F1F3F7 !important;
+    color: black;
+}
+.hoveredrow, .hoveredrow td {
+    background: #DAE1F6 !important;
+    color: black;
+}
 .maildelcolumn {
     text-align: center;
 }
 .mailsubjectcolumn {
     width: 100%;
-    border: 1px solid red;
 }
-td.mailsubjectcolumn {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-.mailsubjectcolumn a {
-    display: block;
-    padding: 0.25em 0;
+.mailwithcolumn {
+    white-space: nowrap;
 }
 .newmail .mailsubjectcolumn {
     font-weight: bold;
@@ -190,7 +197,7 @@ td.mailsubjectcolumn {
     margin-bottom: 0.5em;
 }
 .mailmessageheader {
-    background: #CCC url(/static/mailheaderbg.png) repeat-x bottom;
+    background: #CCC url(mailheaderbg.png) repeat-x bottom;
     color: black;
     text-align: center;
     font-size: 0.8em;
@@ -343,6 +350,25 @@ li > p:first-child {
 img {
     border: 0 none;
 }
+#secondarynav {
+    float: right;
+    border-left: 1px dotted #CCC;
+    padding-left: 0.5em;
+width: 10em;
+}
+#yourgroups {
+    float: right;
+    width: 15em;
+}
 .sortform {
     text-align: right;
+}
+.groupgroupcol {
+    width: 100%;
+}
+.groupcreatedcol, .groupownercol {
+    white-space: nowrap;
+}
+#yourgroups .groupnamecol {
+    width: 100%;
 }

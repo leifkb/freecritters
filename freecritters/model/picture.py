@@ -1,6 +1,7 @@
 import Image
 from freecritters.model.resizedpicture import ResizedPicture
-from cStringIO import StringIO
+from StringIO import StringIO
+from datetime import datetime
 
 class Picture(object):
     def __init__(self, name, copyright, description, image):
@@ -32,6 +33,7 @@ class Picture(object):
         self.width, self.height = pil_image.size
         self.format = format
         self.image = image
+        self.last_change = datetime.utcnow()
     
     _mime_types = {
         'PNG': 'image/png',

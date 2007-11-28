@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from storm.locals import create_database
+from sqlalchemy import create_engine
 import yaml
 import os.path
 
@@ -59,10 +59,7 @@ _default_dict = _load_yaml_dict(_default_filename)
 
 def config_from_dict(d):
     config = _merge(_default_dict, d)
-    config.database.db = create_database(config.database.url)
-    if config.database.echo:
-        from storm import database
-        database.DEBUG = True
+    config.database.engine = create_engine(config.database.url, echo=config.database.echo)
     return config
 
 def config_from_yaml(filename):
