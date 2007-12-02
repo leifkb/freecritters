@@ -112,7 +112,7 @@ mapper(GroupRole, group_roles, properties={
 
 mapper(GroupMember, group_members, properties={
     'user': relation(User, backref=backref('group_memberships', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
-    'group': relation(Group, backref=backref('groups', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
+    'group': relation(Group, backref=backref('members', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
     'group_role': relation(GroupRole, backref=backref('members', lazy='dynamic'))
 }, extension=CountKeeperExtension('group', 'member_count'))
 

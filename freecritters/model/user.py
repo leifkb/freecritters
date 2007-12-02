@@ -73,5 +73,10 @@ class User(PasswordHolder):
             username = cls.unformat_username(username)
             return cls.query.filter(users.c.unformatted_username==username).first()
     
-    def find_group_memnership(self, group):
-        return self.group_memberships.filter(group_id==group.group_id).first()
+    def find_group_membership(self, group):
+        return self.group_memberships.filter_by(group_id=group.group_id).first()
+    
+    @property
+    def max_group_type(self):
+        from freecritters.model.group import Group
+        return self.group_memberships.join('group').max(Group.type)

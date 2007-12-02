@@ -71,3 +71,7 @@ class Group(object):
     @property
     def rendered_description(self):
         return render_plain_text(self.description, 5)
+    
+    @property
+    def default_role(self):
+        return self.roles.filter_by(is_default=True).one()

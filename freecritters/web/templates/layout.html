@@ -39,6 +39,7 @@
             <li><a href="{{ fc.url('home')|e }}">Home</a></li
            ><li>{% if fc.new_mail %}<strong>{% endif %}<a href="{{ fc.url('mail.inbox')|e }}">Mail</a>{% if fc.new_mail %}</strong>{% endif %}</li
            ><li><a href="{{ fc.url('pets.pet_list')|e }}">Pets</a></li
+           ><li><a href="{{ fc.url('groups')|e }}">Groups</a></li
         ></ul>
         <div id="main">
             <h2 id="contenttitle">{{ title }}</h2>

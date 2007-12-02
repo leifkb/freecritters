@@ -3,7 +3,7 @@
 """Form modifiers which are direcrtly related to freeCritters."""
 
 from datetime import datetime, timedelta
-from freecritters.web.form import Modifier, ValidationError
+from freecritters.web.form import HiddenField, Modifier, ValidationError
 from freecritters.model import User, Subaccount, FormToken, Pet, Appearance, Group
 from freecritters.textformats import render_html
 
@@ -139,7 +139,15 @@ class FormTokenValidator(Modifier):
         if form_token is None:
             raise ValidationError(self.message)
         return value
-            
+
+class FormTokenField(HiddenField):
+    def __init__(self, name=u'form_token', id_=None):
+        super(FormTokenField, self).__init__(name, id_=id_, modifiers=[FormTokenValidator()])
+        self.type_name = 'HiddenField'
+        
+    def default_value(self, form):
+        return form.req.form_token()
+      
 class HtmlModifier(Modifier):
     def __init__(self, message=u"Couldn't parse your text: %s"):
         self.message = message
@@ -182,7 +190,6 @@ class GroupTypeCompatibilityValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        max_group_type = form.req.user.group_memberships.join('group').max(Group.type)
-        if not Group.types_can_coexist(int(value), max_group_type):
+        if not Group.types_can_coexist(int(value), form.req.user.max_group_type):
             raise ValidationError(self.message)
         return value

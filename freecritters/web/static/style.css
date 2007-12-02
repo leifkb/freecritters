@@ -157,6 +157,22 @@ table.normal td {
     background: #DAE1F6 !important;
     color: black;
 }
+table.labels {
+    width: 100%;
+}
+table.labels th {
+    font-weight: bold;
+    vertical-align: top;
+    text-align: left;
+    white-space: nowrap;
+    padding-right: 1em;
+}
+table.labels td {
+    width: 100%;
+}
+td p {
+    margin-top: 0;
+}
 .maildelcolumn {
     text-align: center;
 }
@@ -370,5 +386,49 @@ width: 10em;
     white-space: nowrap;
 }
 #yourgroups .groupnamecol {
+    width: 100%;
+}
+.groupmenu {
+    float: right;
+    margin: 0.25em;
+    width: 11em;
+    border-top: 1px solid #CCC;
+    border-left: 1px solid #CCC;
+    border-right: 1px solid #CCC;
+}
+.groupmenu h3 {
+    margin: 0;
+    padding: 0.1em;
+    font-size: 1em;
+    font-weight: bold;
+    text-align: center;
+    background: #CAD6F9;
+    color: black;
+    border-bottom: 1px solid #CCC;
+}
+.groupmenu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.groupmenu li {
+    display: block;
+    padding: 0;
+    margin: 0;
+}
+.groupmenu a {
+    display: block;
+    padding: 0.25em;
+    padding-left: 1em;
+    width: 9.75em;
+    border-bottom: 1px solid #CCC;
+    color: black;
+    text-decoration: none;
+}
+.groupmenu a:hover, .groupmenu a:focus {
+    background: #EEE;
+    color: black;
+}
+#groupmembers {
     width: 100%;
 }

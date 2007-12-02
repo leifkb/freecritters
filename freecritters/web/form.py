@@ -190,6 +190,7 @@ class FormField(object):
         self.modifiers = modifiers
         self.must_be_present = must_be_present
         self.keep_failed_values = True
+        self.type_name = None
         
     def value_from_raw(self, values, form):
         """Takes a list (like what req.form.getlist(name) would return) of
@@ -225,8 +226,11 @@ class FormField(object):
         template will need about this field.
         """
         
+        type_name = self.type_name
+        if type_name is None:
+            type_name = type(self).__name__
         result = dict(
-            type=type(self).__name__,
+            type=type_name,
             title=self.title,
             name=self.name,
             description=self.description,
@@ -246,6 +250,16 @@ class FormField(object):
         for modifier in self.modifiers:
             result.update(modifier.dependencies(form))
         return result
+    
+    def default_value(self, form):
+        """Returns a default value for the field. This is overridden by
+        the default specified when the Form is instantiated.
+        
+        Raises FieldNotFilled to indicate that there is no default
+        available.
+        """
+        
+        raise FieldNotFilled()
         
 class TextField(FormField):
     """Text fields (<input type="text">)."""
@@ -433,12 +447,20 @@ class Form(object):
             else:
                 data = req.form
         self.req = req
-        self.defaults = defaults
+        self.form_defaults = defaults
         self.values = {}
         self.modified_values = {}
         self.errors = {}
         self.was_filled = True
         self.submitted_fields = []
+        self.field_defaults = {}
+        for field in self.fields:
+            try:
+                self.field_defaults[field.id_] = field.default_value(self)
+            except FieldNotFilled:
+                pass
+        self.defaults = self.field_defaults.copy()
+        self.defaults.update(self.form_defaults)
         fields_to_modify = []
         if self.reliable_field is not None:
             fields = self.fields[:]
@@ -460,7 +482,7 @@ class Form(object):
                 if field.must_be_present:
                     self.was_filled = False
                 try:
-                    modified_value = defaults[field.id_]
+                    modified_value = self.defaults[field.id_]
                     value = field.unmodify_value(modified_value, self)
                     self.values[field.id_] = value
                     self.modified_values[field.id_] = modified_value
@@ -488,7 +510,7 @@ class Form(object):
                 self.errors[field.id_] = e.message
                 if not field.keep_failed_values:
                     try:
-                        modified_value = defaults[field.id_]
+                        modified_value = self.defaults[field.id_]
                         value = field.unmodify_value(modified_value, self)
                         self.values[field.id_] = value
                     except KeyError:
@@ -496,7 +518,7 @@ class Form(object):
                         
         for field in fields_to_modify:
             modify_field(field)
-            
+                    
     def values_dict(self):
         """Returns the values of fields in the form which have values (either
         default or user-provided) as a dict, keyed by field id. This dict can

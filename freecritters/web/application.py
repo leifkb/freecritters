@@ -154,7 +154,7 @@ class Request(BaseRequest):
             return False
         if not self.has_permission(u'groups'):
             return False
-        membership = self.user.group_memberships.filter_by(group_id=group.group_id).one()
+        membership = self.user.group_memberships.filter_by(group_id=group.group_id).first()
         if membership is None:
             return False
         if permission is None:

@@ -5,7 +5,7 @@ from freecritters.model import User, MailConversation, MailParticipant, \
 from freecritters.web.util import returns_json
 from freecritters.web.form import Form, HiddenField, TextField, TextArea, \
                                   SubmitButton, SelectMenu, LengthValidator
-from freecritters.web.modifiers import UserModifier, FormTokenValidator, \
+from freecritters.web.modifiers import UserModifier, FormTokenField, \
                                        HtmlModifier, NotMeValidator
 from freecritters.web.paginator import Paginator
 from freecritters.web.application import Response
@@ -37,9 +37,6 @@ def inbox(req):
     
     participations = MailParticipant.find(req.user)
     
-    last_change = participations.max(MailParticipant.last_change)
-    req.check_modified(last_change)
-    
     participations = participations.order_by(desc(MailParticipant.last_change))
     
     req.user.last_inbox_view = datetime.utcnow()
@@ -52,7 +49,7 @@ def inbox(req):
         form_token=req.form_token(),
         can_send=req.has_permission(u'send_mail'),
         can_delete=req.has_permission(u'delete_mail')
-    ).last_modified(last_change)
+    )
 
 def inbox_rss(req):
     req.check_permission_rss(u'view_mail')
@@ -75,7 +72,7 @@ class SendForm(Form):
     action = 'mail.send'
     method = u'post'
     fields = [
-        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        FormTokenField(),
         TextField(u'user', u'To',
                   modifiers=[UserModifier(), NotMeValidator()]),
         TextField(u'subject', u'Subject',
@@ -90,9 +87,7 @@ class SendForm(Form):
     
 def send(req):
     req.check_permission(u'send_mail')
-    defaults = {
-        u'form_token': req.form_token()
-    }
+    defaults = {}
     if 'user' in req.args:
         user = User.find_user(req.args['user'])
         if user is not None:
@@ -127,7 +122,7 @@ def send(req):
 class ReplyForm(Form):
     method = u'post'
     fields = [
-        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        FormTokenField(),
         TextArea(u'message', u'Message',
                  modifiers=[LengthValidator(2), HtmlModifier()]),
         SubmitButton(title=u'Send', id_=u'submit'),
@@ -136,9 +131,10 @@ class ReplyForm(Form):
 
 class DeleteForm(Form):
     method = u'post'
+    id_prefix = u'delete_'
     fields = [
-        HiddenField(u'delete_form_token', modifiers=[FormTokenValidator()]),
-        SubmitButton(title=u'Delete', id_=u'deletesubmit')
+        FormTokenField(),
+        SubmitButton(title=u'Delete', id_=u'submit')
     ]
     
 def conversation(req, conversation_id):
@@ -152,10 +148,7 @@ def conversation(req, conversation_id):
     participation.last_view = datetime.utcnow()
     
     if req.has_permission(u'delete_mail'):
-        defaults = {
-            u'delete_form_token': req.form_token()
-        }
-        delete_form = DeleteForm(req, defaults)
+        delete_form = DeleteForm(req)
         delete_form.action = 'mail.conversation', dict(conversation_id=conversation.conversation_id)
         if delete_form.was_filled and not delete_form.errors:
             participation.delete()
@@ -166,9 +159,7 @@ def conversation(req, conversation_id):
         delete_form = None
             
     if req.has_permission(u'send_mail'):
-        defaults = {
-            u'form_token': req.form_token(),
-        }
+        defaults = {}
         if 'quote' in req.args and req.args['quote'].isdigit():
             quoted_id = int(req.args['quote'])
             quoted_message = MailMessage.query.get(quoted_id)
@@ -219,10 +210,7 @@ def reply(req, conversation_id):
     if participation is None:
         raise Error403()
     
-    defaults = {
-        u'form_token': req.form_token(),
-    }
-    reply_form = ReplyForm(req, defaults)
+    reply_form = ReplyForm(req)
     reply_form.action = 'mail.reply', dict(conversation_id=conversation.conversation_id)
     values = reply_form.values_dict()
     
@@ -256,7 +244,7 @@ class MultiDeleteForm(Form):
     method = u'post'
     
     fields = [
-        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        FormTokenField(),
         HiddenField(u'delete', must_be_present=False),
         HiddenField(u'page', must_be_present=False),
         SubmitButton(title=u'Delete', id_=u'submit')
@@ -266,7 +254,6 @@ def multi_delete(req):
     req.check_permission(u'delete_mail')
         
     defaults = {
-        u'form_token': req.form_token(),
         u'delete': u','.join(req.form.getlist('del')),
         u'page': u'1'
     }

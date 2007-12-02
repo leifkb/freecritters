@@ -31,9 +31,11 @@ urls = Map([
     Rule('/pets/', endpoint='pets.pet_list'),
     Rule('/pets/create/', endpoint='pets.species_list'),
     Rule('/groups/', endpoint='groups'),
-    Rule('/groups/<int:group_id>', endpoint='groups.group'),
     Rule('/groups/list', endpoint='groups.group_list'),
     Rule('/groups/create', endpoint='groups.create_group'),
+    Rule('/groups/<int:group_id>/', endpoint='groups.group'),
+    Rule('/groups/<int:group_id>/leave', endpoint='groups.leave_group'),
+    Rule('/groups/<int:group_id>/members', endpoint='groups.group_members'),
     Rule('/static/<path:fn>', endpoint='static'),
     Rule('/urls.js', endpoint='urls.urls_js')
 ], charset='utf-8', converters={'color': ColorConverter})

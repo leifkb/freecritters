@@ -1,8 +1,15 @@
 {% extends "layout.html" %}
 {% include "group_tabs.html" %}
+
 {% block title "Groups" %}
 
+{% block tabs render_tabs(group_tabs) %}
+
 {% block content %}
+{% if left %}
+<p class="formsuccessful">Left group.</p>
+{% endif %}
+
 {% if groups -%}
 <table class="normal" id="yourgroups">
     <caption>Your groups</caption>

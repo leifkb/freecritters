@@ -1,5 +1,9 @@
 {% extends "layout.html" %}
+{% include "group_tabs.html" %}
+
 {% block title "Group list" %}
+
+{% block tabs render_tabs(group_tabs) %}
 
 {% block content %}
 <div class="sortform">
@@ -26,7 +30,7 @@
         {% set acceptable_type = group.can_coexist_with(max_group_type) -%}
         <tr>
             <td class="groupgroupcol dedicatedtolink">
-                <h3><a href="#">{{ group.name|e }}</a></h3>
+                <h3><a href="{{ fc.url('groups.group', group_id=group.group_id)|e }}">{{ group.name|e }}</a></h3>
                 {{ group.rendered_description }}
             </td>
             <td class="grouptypecol">

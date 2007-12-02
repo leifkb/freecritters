@@ -210,7 +210,7 @@ Index('idx__pets__user_id', pets.c.user_id)
 
 groups = Table('groups', metadata,
     Column('group_id', Integer, primary_key=True),
-    Column('created', DateTime, nullable=False),
+    Column('created', DateTime(timezone=False), nullable=False),
     Column('type', Integer, nullable=False),
     Column('name', Unicode, nullable=False),
     Column('unformatted_name', Unicode, nullable=False),
@@ -274,6 +274,7 @@ group_members = Table('group_members', metadata,
     Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__group_members__group_id'), nullable=False),
     Column('group_role_id', Integer,_foreign_key('group_roles.group_role_id', 'fkey__group_members__group_role_id'),
            nullable=False),
+    Column('joined', DateTime(timezone=False), nullable=False),
     UniqueConstraint('user_id', 'group_id', name='uniq__group_members__user_id__group_id')
 )
 Index('idx__group_members__group_id__user_id',

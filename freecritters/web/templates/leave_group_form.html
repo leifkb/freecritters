@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% include "group_menu.html" %}
+{% block title %}Leaving {{ group.name|e }}{% endblock %}
+{% block content %}
+{{ group_menu(group) }}
+{% if is_owner %}
+<p>You can't leave the group {{ group.name|e }} because you own it. You must either appoint someone else as this group's owner or delete it.</p>
+{% else %}
+<p>Are you sure you want to leave the group {{ group.name|e }}?</p>
+{{ render_form(form) }}
+{% endif %}
+{% endblock %}

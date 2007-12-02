@@ -1,0 +1,9 @@
+{% macro group_menu(group) %}
+<div class="groupmenu">
+    <h3>{{ group.type_name|e }}: {{ group.name|e }}</h3>
+    <ul>
+        <li><a href="{{ fc.url('groups.group', group_id=group.group_id)|e }}">Home</a></li>
+        <li><a href="{{ fc.url('groups.leave_group', group_id=group.group_id)|e }}">Leave</a></li>
+    </ul>
+</div>
+{% endmacro %}

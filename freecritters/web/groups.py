@@ -5,16 +5,16 @@ from freecritters.web.form import \
     LengthValidator, RegexValidator
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import eagerload
-from freecritters.model import Session, Group
+from freecritters.model import Session, User, Group, GroupMember
 from freecritters.web.paginator import Paginator
 from freecritters.web.modifiers import \
-    FormTokenValidator, GroupNameNotTakenValidator, GroupTypeCompatibilityValidator
+    FormTokenField, GroupNameNotTakenValidator, GroupTypeCompatibilityValidator
 
 class CreateGroupForm(Form):
     method = u'post'
     action = 'groups.create_group'
     fields = [
-        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
+        FormTokenField(),
         TextField(u'name', u'Name', max_length=Group.name_length,
                   modifiers=[RegexValidator(Group.name_regex,
                                             message=u'Can only contain '
@@ -41,11 +41,13 @@ def create_group(req):
             owned_group_count=owned_group_count,
             max_ownable_count=max_ownable_count)
     
-    form = CreateGroupForm(req, {u'form_token': req.form_token()})
+    form = CreateGroupForm(req)
     if form.was_filled and not form.errors:
         values = form.values_dict()
         group = Group(int(values[u'type']), values[u'name'], values[u'description'], req.user)
         Session.save(group)
+        Session.flush()
+        req.redirect('groups.group', group_id=group.group_id)
     else:
         return req.render_template('create_group_form.html',
             form=form.generate())
@@ -63,7 +65,8 @@ def groups(req):
     ]
     
     return req.render_template('groups.html',
-        groups=groups)
+        groups=groups,
+        left='left' in req.args)
 
 orders = {
     u'members': desc(Group.member_count),
@@ -95,21 +98,96 @@ def group_list(req):
     order = orders[sort_form.values_dict()[u'order']]
     
     groups = Group.query.order_by(order)
-    max_group_type = req.user.group_memberships.max(Group.type)
     paginated = group_list_paginator(req, groups)
 
     return req.render_template('group_list.html',
-        max_group_type=max_group_type,
+        max_group_type=req.user.max_group_type,
         groups=paginated.all(),
         sort_form=sort_form.generate(),
         paginator=paginated
     )
 
+class JoinForm(Form):
+    method = u'post'
+    fields = [
+        FormTokenField(),
+        SubmitButton(title=u'Join', id_=u'submit')
+    ]
+
 def group(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_permission(u'groups')
+    membership = req.user.group_memberships.filter_by(group_id=group.group_id).first()
+    if membership is None:
+        is_member = False
+        if group.can_coexist_with(req.user.max_group_type):
+            join_form = JoinForm(req)
+            join_form.action = 'groups.group', dict(group_id=group.group_id)
+            if join_form.was_filled and not join_form.errors:
+                membership = GroupMember(req.user, group, group.default_role)
+                Session.save(membership)
+                join_form = None
+                is_member = True
+            else:
+                join_form = join_form.generate()
+        else:
+            join_form = None
+    else:
+        join_form = None
+        is_member = True
+        
+    return req.render_template('group.html',
+        group=group,
+        is_member=is_member,
+        join_form=join_form)
+
+class LeaveGroupForm(Form):
+    method = u'post'
+    fields = [
+        FormTokenField(),
+        SubmitButton(title=u'Yes, leave it', id_=u'submit')
+    ]
+
+def leave_group(req, group_id):
     group = Group.query.get(group_id)
     if group is None:
         return None
     req.check_group_permission(group, None)
     
-    return req.render_template('group.html',
-        group=group)
+    if req.user == group.owner:
+        return req.render_template('leave_group_form.html',
+            group=group,
+            is_owner=True)
+        
+    form = LeaveGroupForm(req)
+    form.action = 'groups.leave_group', dict(group_id=group.group_id)
+    if form.was_filled and not form.errors:
+        membership = req.user.find_group_membership(group)
+        Session.delete(membership)
+        req.redirect('groups', left=1)
+    else:
+        return req.render_template('leave_group_form.html',
+            is_owner=False,
+            group=group,
+            form=form.generate())
+
+group_member_paginator = Paginator()
+
+def group_members(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, None)
+    
+    members = group.members.join('user').options(eagerload('user'), eagerload('role')).order_by([
+        desc(User.user_id==group.owner_user_id),
+        desc(GroupMember.joined)
+    ])
+    paginated = group_member_paginator(req, members)
+    
+    return req.render_template('group_members.html',
+        group=group,
+        paginator=paginated,
+        members=paginated.all())
