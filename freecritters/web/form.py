@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Relatively simple library for form validation. Made for Colubrid and Jinja.
+"""Relatively simple library for form validation. Works with Werkzeug.
 
 This is designed similarly to Pocoo's pocoo.utils.forms, but with fewer
 features and without a dependency on Pocoo.
@@ -119,11 +119,11 @@ class SameAsValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        if value != form.values[self.other_field_id]:
+        if value != form.field_results(self.other_field_id).value:
             message = self.message
             if message is None:
-                message = u"Must be the same as '%s'." \
-                                % form.fields_by_id[self.other_field_id].title
+                message = u'Must be the same as "%s".' \
+                                % form.field_results(self.other_field_id).field.title
                 raise ValidationError(message)
         return value
 
@@ -150,7 +150,7 @@ class BlankToNoneModifier(Modifier):
         else:
             return value
     
-    def unomdify(self, value, form):
+    def unmodify(self, value, form):
         if value is None:
             return u''
         else:
@@ -190,7 +190,6 @@ class FormField(object):
         self.modifiers = modifiers
         self.must_be_present = must_be_present
         self.keep_failed_values = True
-        self.type_name = None
         
     def value_from_raw(self, values, form):
         """Takes a list (like what req.form.getlist(name) would return) of
@@ -221,28 +220,6 @@ class FormField(object):
             value = modifier.unmodify(value, form)
         return value
     
-    def template_context(self, form):
-        """Returns a dictionary which contains all information that a
-        template will need about this field.
-        """
-        
-        type_name = self.type_name
-        if type_name is None:
-            type_name = type(self).__name__
-        result = dict(
-            type=type_name,
-            title=self.title,
-            name=self.name,
-            description=self.description,
-            id=self.id_,
-            error=form.errors.get(self.id_),
-            has_value=False
-        )
-        if self.id_ in form.values:
-            result['has_value'] = True
-            result['value'] = form.values[self.id_]
-        return result
-    
     def dependencies(self, form):
         """Returns a set of fields that this field depends on."""
         
@@ -253,14 +230,18 @@ class FormField(object):
     
     def default_value(self, form):
         """Returns a default value for the field. This is overridden by
-        the default specified when the Form is instantiated.
+        the default specified when the Form is called.
         
         Raises FieldNotFilled to indicate that there is no default
         available.
         """
         
         raise FieldNotFilled()
-        
+    
+    @property
+    def type_name(self):
+        return type(self).__name__
+    
 class TextField(FormField):
     """Text fields (<input type="text">)."""
     
@@ -274,12 +255,6 @@ class TextField(FormField):
                                         modifiers, must_be_present)
         self.max_length = max_length
         self.size = size
-    
-    def template_context(self, form):
-        result = super(TextField, self).template_context(form)
-        result['size'] = self.size
-        result['max_length'] = self.max_length
-        return result
         
 class ColorSelector(TextField):
     """Field for picking a color."""
@@ -305,17 +280,11 @@ class CheckBox(FormField):
                                        modifiers, must_be_present)
         self.value = value
     
-    def value_from_raw(self, values, form):
-        if form.reliable_field is not None \
-           and form.reliable_field not in form.submitted_fields:
+    def value_from_raw(self, values, results):
+        if not results.reliable_field_filled:
             raise FieldNotFilled()
 
         return self.value in values
-    
-    def template_context(self, form):
-        result = super(CheckBox, self).template_context(form)
-        result['raw_value'] = self.value # Terrible name!
-        return result
         
 class TextArea(FormField):
     """Text areas (<textarea></textarea>)."""
@@ -326,12 +295,6 @@ class TextArea(FormField):
                                        modifiers, must_be_present)
         self.rows = rows
         self.cols = cols
-    
-    def template_context(self, form):
-        result = super(TextArea, self).template_context(form)
-        result['rows'] = self.rows
-        result['cols'] = self.cols
-        return result
 
 class SelectMenu(FormField):
     """Select menus (<select>...</select>)."""
@@ -351,14 +314,6 @@ class SelectMenu(FormField):
             # If the user gives a non-existent value, we silently act like
             # the field wasn't filled in at all. Is this the right solution?
             raise FieldNotFilled()
-    
-    def template_context(self, form):
-        result = super(SelectMenu, self).template_context(form)
-        options = []
-        for value, caption in self.options:
-            options.append({'value': value, 'caption': caption})
-        result['options'] = options
-        return result
 
 class HiddenField(FormField):
     """Hidden fields (<input type="hidden">)."""
@@ -380,174 +335,207 @@ class SubmitButton(FormField):
                  modifiers=None, must_be_present=False):
         super(SubmitButton, self).__init__(name, title, description, id_,
                                            modifiers, must_be_present)
-    
-class FormMeta(type):
-    def __init__(cls, name, bases, dict_):
-        # Form isn't in the namespace when it's being created,
-        # so we can't use 'and'.
-        if bases != (object,):
-            assert bases == (Form,), u'Forms can inherit only from Form.'
-        assert cls.method in (u'get', u'post'), \
-            u'Form method must be get or post.'
-        cls.fields_by_id = {}
-        for field in dict_['fields']:
-            if field.id_ in cls.fields_by_id:
-                raise ValueError(u'Duplicate id %s.' % field.id_)
-            cls.fields_by_id[field.id_] = field
-            
+                                           
 class Form(object):
-    """Forms. Subclasses represent individual forms; instances represent
-    loads of those forms. Create a form like this:
+    def __init__(self, method, action, *fields, **kws):
+        self.method = method
+        self.action = action
+        self._fields = []
+        self._fields_by_id = {}
+        self.id_prefix = kws.pop('id_prefix', u'')
+        self.reliable_field = kws.pop('reliable_field', None)
+        self._dependency_ordered_fields = None
+        if kws:
+            raise ArgumentError("Unknown keyword argument(s): %r" % kws.keys())
+        for field in fields:
+            self.add_field(field)
     
-    class FooForm(Form):
-        method = u'post'
-        action = 'some_endpoint', {'some': 'args'}
-        fields = [
-            TextField(u'name', u'Name'),
-            TextField(u'age', u'Age', modifiers=[IntegerModifier(),
-                                                 RangeValidator(1, 130)]),
-            SubmitButton(title=u'Submit', id_=u'submit')
-        ]
+    def add_field(self, field):
+        if field.id_ in self._fields_by_id:
+            raise ValueError("Duplicate ID: %r" % field.id_)
+        self._dependency_ordered_fields = None
+        self._fields_by_id[field.id_] = field
+        self._fields.append(field)
     
-    And use it like this:
-        
-    foo = FooForm(req, defaults)
-    if foo.was_filled and not foo.errors:
-        values = foo.values_dict()
-        # Do something with values
-    else:
-        template_data = foo.generate()
-        # Fill a template with template_data
-    """
+    def __iter__(self):
+        return iter(self._fields)
     
-    __metaclass__ = FormMeta
+    def field(self, field_or_id):
+        if not isinstance(field_or_id, basestring):
+            field_or_id = field_or_id.id_
+        return self._fields_by_id[field_or_id] 
     
-    id_prefix = u''
-    method = u'post'
-    action = u''
-    fields = []
-    reliable_field = None
-    
-    def __init__(self, req, defaults=None, data=None):
-        """Initializes an instance (load) of the form. req is the Colubrid
-        Request; defaults is a mapping keyed on field id which contains
-        default field values. data is a MultiDict of data; if it's not
-        present, it's pulled from req (req.form if method is post, req.args
-        if method is get). reliable_field is a field (probably hidden) which
-        is always present when the form is submitted; this is used for
-        fields like check boxes whose presence can not be separated from their
-        value.
-        """
-        
-        if defaults is None:
-            defaults = {}
-        if data is None:
-            if self.method == u'get':
-                data = req.args
+    def _generate_dependency_ordered_fields(self):
+        fields = list(self)
+        if self.reliable_field is not None:
+            reliable_field = self.field(self.reliable_field)
+            assert not reliable_field.dependencies(self), \
+                'Reliable field must not have dependencies,'
+            reliable_field_index = fields.index(reliable_field)
+            fields[reliable_field_index] = fields[0]
+            fields[0] = reliable_field
+        # This algorithm is disgustingly inefficient. But it's used rarely,
+        # and on small data sets, so I'm not going to bother to optimize it.
+        # I'm a bad person.
+        while True:
+            encountered = set()
+            for field_index, field in enumerate(fields):
+                encountered.add(field)
+                unmet_dependencies = field.dependencies(self) - encountered
+                if unmet_dependencies:
+                    max_index = 0
+                    for dependency in unmet_dependencies:
+                        dependency = self.field(dependency)
+                        index = fields.index(dependency)
+                        if index > max_index:
+                            max_index = index
+                    fields[field_index] = fields[max_index]
+                    fields[max_index] = field
+                    break
             else:
-                data = req.form
+                break
+        self._dependency_ordered_fields = fields
+    
+    @property
+    def dependency_ordered_fields(self):
+        if self._dependency_ordered_fields is None:
+            self._generate_dependency_ordered_fields()
+        return iter(self._dependency_ordered_fields)
+    
+    def __call__(self, req, form_defaults=None):
+        if form_defaults is None:
+            form_defaults = {}
+        
+        return FormResults(req, self, form_defaults)
+        
+class FieldResults(object):
+    def __init__(self, form_results, field, filled, has_value, value,
+                 has_modified_value, modified_value, error):
+        self.form_results = form_results
+        self.field = field
+        self.filled = filled
+        self.has_value = has_value
+        if has_value:
+            self.value = value
+        self.has_modified_value = has_modified_value
+        if has_modified_value:
+            self.modified_value = modified_value
+        self.error = error
+
+class FormResults(object):
+    def __init__(self, req, form, form_defaults):
         self.req = req
-        self.form_defaults = defaults
-        self.values = {}
-        self.modified_values = {}
-        self.errors = {}
-        self.was_filled = True
-        self.submitted_fields = []
-        self.field_defaults = {}
-        for field in self.fields:
+        self.form = form
+        self.action = form.action
+        self.has_errors = False
+        self.filled = True
+        self._field_results = []
+        self._field_results_by_id = {}
+        
+        defaults = {}
+        for field in form:
             try:
-                self.field_defaults[field.id_] = field.default_value(self)
+                defaults[field.id_] = field.default_value(self)
             except FieldNotFilled:
                 pass
-        self.defaults = self.field_defaults.copy()
-        self.defaults.update(self.form_defaults)
-        fields_to_modify = []
-        if self.reliable_field is not None:
-            fields = self.fields[:]
-            for index, field in enumerate(fields):
-                if field.id_ == self.reliable_field:
-                    del fields[index]
-                    fields.insert(0, field)
-                    break
+        defaults.update(form_defaults)
+        
+        if form.method == u'get':
+            data = req.args
         else:
-            fields = self.fields
-        for field in fields:
+            data = req.form
+            
+        for field in form.dependency_ordered_fields:
+            error = None
+            value = None
             has_value = False
+            modified_value = None
+            has_modified_value = False
+            filled = False
             try:
                 value = field.value_from_raw(data.getlist(field.name), self)
-                self.values[field.id_] = value
-                self.submitted_fields.append(field.id_)
-                fields_to_modify.append(field)
             except FieldNotFilled:
                 if field.must_be_present:
-                    self.was_filled = False
+                    self.filled = False
                 try:
-                    modified_value = self.defaults[field.id_]
-                    value = field.unmodify_value(modified_value, self)
-                    self.values[field.id_] = value
-                    self.modified_values[field.id_] = modified_value
+                    modified_value = defaults[field.id_]
                 except KeyError:
                     pass
-                
-        modified_fields = set()
-        def modify_field(field):
-            if field in modified_fields:
-                return
-            for dependency in field.dependencies(self):
-                if dependency not in modified_fields:
-                    modify_field(dependency)
-                if dependency.id_ not in self.modified_values:
-                    return
-            try:
-                value = self.values[field.id_]
-            except KeyError:
-                return
-            try:
-                modified_value = field.modify_value(value, self)
-                self.modified_values[field.id_] = modified_value
-                modified_fields.add(field)
-            except ValidationError, e:
-                self.errors[field.id_] = e.message
-                if not field.keep_failed_values:
+                else:
+                    has_modified_value = True
+                    value = field.unmodify_value(modified_value, self)
+                    has_value = True
+            else:
+                has_value = True
+                filled = True
+                for dependency in field.dependencies(self.form):
+                    if not self.field_results(dependency).has_modified_value:
+                        break
+                else:
                     try:
-                        modified_value = self.defaults[field.id_]
-                        value = field.unmodify_value(modified_value, self)
-                        self.values[field.id_] = value
-                    except KeyError:
-                        pass
-                        
-        for field in fields_to_modify:
-            modify_field(field)
-                    
-    def values_dict(self):
-        """Returns the values of fields in the form which have values (either
-        default or user-provided) as a dict, keyed by field id. This dict can
-        be safely mutated.
-        """
-        
-        return self.modified_values.copy()
+                        modified_value = field.modify_value(value, self)
+                    except ValidationError, e:
+                        error = e.message
+                        self.has_errors = True
+                        if not field.keep_failed_values:
+                            try:
+                                value = field.unmodify_value(defaults[field.id_], self)
+                            except KeyError:
+                                pass
+                    else:
+                        has_modified_value = True
+            results = FieldResults(self, field, filled, has_value, value,
+                                   has_modified_value, modified_value, error)
+            self._field_results.append(results)
+            self._field_results_by_id[field.id_] = results
     
-    def generate(self):
-        """Generates a dictionary of data about the form, suitable for use in
-        a Jinja template.
-        """
-        
+    @property
+    def successful(self):
+        return self.filled and not self.has_errors
+    
+    @property
+    def reliable_field_filled(self):
+        reliable_field = self.form.reliable_field
+        if reliable_field is None:
+            raise ValueError('Reliable field required.')
+        return self.field_results(reliable_field).filled
+    
+    @property
+    def action_url(self):
         if isinstance(self.action, basestring):
-            endpoint = self.action
-            args = {}
+            return self.req.url_for(self.action)
         else:
-            endpoint, args = self.action
-        real_action = self.req.url_for(endpoint, args)
-        result = {}
-        result['id_prefix'] = self.id_prefix
-        result['method'] = self.method
-        result['action'] = real_action
-        result['field_ids'] = []
-        result['fields'] = {}
-        result['has_errors'] = bool(self.errors)
-        for field in self.fields:
-            field_data = field.template_context(self)
-            field_data['full_id'] = self.id_prefix + field_data['id']
-            result['field_ids'].append(field_data['id'])
-            result['fields'][field.id_] = field_data
-        return result
+            return self.req.url_for(self.action[0], **self.action[1])
+    
+    def __iter__(self):
+        return iter(field_results.field.id_ for field_results in self._field_results if field_results.has_modified_value)
+    
+    def iterkeys(self):
+        return iter(self)
+    
+    def keys(self):
+        return list(self)
+    
+    def __contains__(self, field_or_id):
+        try:
+            field_results = self.field_results(field_or_id)
+        except KeyError:
+            return False
+        return field_results.has_modified_value
+    
+    def __getitem__(self, field_or_id):
+        field_results = self.field_results(field_or_id)
+        if not field_results.has_modified_value:
+            raise KeyError(field_or_id)
+        return field_results.modified_value
+    
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+    
+    def field_results(self, field_or_id):
+        if not isinstance(field_or_id, basestring):
+            field_or_id = field_or_id.id_
+        return self._field_results_by_id[field_or_id]

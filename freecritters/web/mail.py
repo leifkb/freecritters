@@ -34,16 +34,15 @@ inbox_paginator = Paginator()
 
 def inbox(req):
     req.check_permission(u'view_mail')
-    
-    participations = MailParticipant.find(req.user)
-    
-    participations = participations.order_by(desc(MailParticipant.last_change))
+
+    participations = MailParticipant.find(req.user).order_by(
+        desc(MailParticipant.last_change))
     
     req.user.last_inbox_view = datetime.utcnow()
     
     paginated = inbox_paginator(req, participations)
         
-    return req.render_template('inbox.html',
+    return req.render_template('inbox.mako',
         participations=paginated.all(),
         paginator=paginated,
         form_token=req.form_token(),
@@ -64,26 +63,22 @@ def inbox_rss(req):
         last_change = datetime(2000, 1, 1) # Arbitrary old date
     req.check_modified(last_change)
     return Response(
-        req.render_template_to_string('inbox.rss', messages=messages, last_change=last_change),
+        req.render_template_to_string('inbox_rss.mako', messages=messages, last_change=last_change),
         mimetype='application/rss+xml; charset=utf-8'
     ).last_modified(last_change)
     
-class SendForm(Form):
-    action = 'mail.send'
-    method = u'post'
-    fields = [
-        FormTokenField(),
-        TextField(u'user', u'To',
-                  modifiers=[UserModifier(), NotMeValidator()]),
-        TextField(u'subject', u'Subject',
-                  max_length=MailConversation.max_subject_length,
-                  size=42,
-                  modifiers=[LengthValidator(2)]),
-        TextArea(u'message', u'Message',
-                 modifiers=[LengthValidator(2), HtmlModifier()]),
-        SubmitButton(title=u'Send', id_=u'submit'),
-        SubmitButton(u'preview', u'Preview')
-    ]
+send_form = Form(u'post', 'mail.send',
+    FormTokenField(),
+    TextField(u'user', u'To',
+              modifiers=[UserModifier(), NotMeValidator()]),
+    TextField(u'subject', u'Subject',
+              max_length=MailConversation.max_subject_length,
+              size=42,
+              modifiers=[LengthValidator(2)]),
+    TextArea(u'message', u'Message',
+             modifiers=[LengthValidator(2), HtmlModifier()]),
+    SubmitButton(title=u'Send', id_=u'submit'),
+    SubmitButton(u'preview', u'Preview'))
     
 def send(req):
     req.check_permission(u'send_mail')
@@ -92,14 +87,13 @@ def send(req):
         user = User.find_user(req.args['user'])
         if user is not None:
             defaults[u'user'] = user
-    form = SendForm(req, defaults)
-    values = form.values_dict()
-    if form.was_filled and not form.errors and u'preview' not in values:
-        conversation = MailConversation(values[u'subject'])
+    form = send_form(req, defaults)
+    if form.successful and u'preview' not in form:
+        conversation = MailConversation(form[u'subject'])
         participant1 = MailParticipant(conversation, req.user)
-        participant2 = MailParticipant(conversation, values[u'user'])
+        participant2 = MailParticipant(conversation, form[u'user'])
         message = MailMessage(conversation, req.user,
-                              values[u'message'][0], values[u'message'][1])
+                              form[u'message'][0], form[u'message'][1])
         Session.save(conversation)
         Session.save(participant1)
         Session.save(participant2)
@@ -108,34 +102,26 @@ def send(req):
         Session.flush()
         req.redirect('mail.conversation', conversation_id=conversation.conversation_id)
     else:
-        if u'preview' in values and u'message' in values:
-            preview = values[u'message'][1]
+        if u'preview' in form and u'message' in form:
+            preview = form[u'message'][1]
         else:
             preview = None
-        context = {
-            'form': form.generate(),
-            'preview': preview,
-            'user': values.get(u'user')
-        }
-        return req.render_template('sendmail.html', context)
+        return req.render_template('send_mail.mako',
+            form=form,
+            preview=preview,
+            user=form.get(u'user'))
         
-class ReplyForm(Form):
-    method = u'post'
-    fields = [
-        FormTokenField(),
-        TextArea(u'message', u'Message',
-                 modifiers=[LengthValidator(2), HtmlModifier()]),
-        SubmitButton(title=u'Send', id_=u'submit'),
-        SubmitButton(u'preview', u'Preview')
-    ]
+reply_form = Form(u'post', None,
+    FormTokenField(),
+    TextArea(u'message', u'Message',
+             modifiers=[LengthValidator(2), HtmlModifier()]),
+    SubmitButton(title=u'Send', id_=u'submit'),
+    SubmitButton(u'preview', u'Preview'))
 
-class DeleteForm(Form):
-    method = u'post'
-    id_prefix = u'delete_'
-    fields = [
-        FormTokenField(),
-        SubmitButton(title=u'Delete', id_=u'submit')
-    ]
+delete_form = Form(u'post', None,
+    FormTokenField(),
+    SubmitButton(title=u'Delete', id_=u'submit'),
+    id_prefix=u'delete_')
     
 def conversation(req, conversation_id):
     req.check_permission(u'view_mail')
@@ -148,15 +134,13 @@ def conversation(req, conversation_id):
     participation.last_view = datetime.utcnow()
     
     if req.has_permission(u'delete_mail'):
-        delete_form = DeleteForm(req)
-        delete_form.action = 'mail.conversation', dict(conversation_id=conversation.conversation_id)
-        if delete_form.was_filled and not delete_form.errors:
+        delete_form_results = delete_form(req)
+        delete_form_results.action = 'mail.conversation', dict(conversation_id=conversation.conversation_id)
+        if delete_form_results.successful:
             participation.delete()
             req.redirect('mail.inbox')
-        delete_form = delete_form.generate()
-        
     else:
-        delete_form = None
+        delete_form_results = None
             
     if req.has_permission(u'send_mail'):
         defaults = {}
@@ -169,11 +153,10 @@ def conversation(req, conversation_id):
                     u'<blockquote>%s</blockquote>\n' % quoted_message.message,
                     u'<blockquote>%s</blockquote>\n' % quoted_message.rendered_message
                 )
-        reply_form = ReplyForm(req, defaults)
-        reply_form.action = 'mail.reply', dict(conversation_id=conversation.conversation_id) 
-        reply_form = reply_form.generate()
+        reply_form_results = reply_form(req, defaults)
+        reply_form_results.action = 'mail.reply', dict(conversation_id=conversation.conversation_id) 
     else:
-        reply_form = None
+        reply_form_results = None
         reply_successful = False
         
     last_expanded_sender = None
@@ -186,18 +169,16 @@ def conversation(req, conversation_id):
             expanded = []
         last_expanded_sender = message.user_id
         expanded.append(message.message_id)
-    context = {
-        'participation': participation,
-        'conversation': conversation,
-        'messages': messages,
-        'reply_form': reply_form,
-        'reply_successful': 'reply_successful' in req.args,
-        'delete_form': delete_form,
-        'can_reply': req.has_permission(u'send_mail'),
-        'expanded': expanded,
-        'collapsed': collapsed
-    }
-    return req.render_template('mailconversation.html', context)
+    return req.render_template('mail_conversation.mako',
+        participation=participation,
+        conversation=conversation,
+        messages=messages,
+        reply_form=reply_form_results,
+        reply_successful='reply_successful' in req.args,
+        delete_form=delete_form_results,
+        can_reply=req.has_permission(u'send_mail'),
+        expanded=expanded,
+        collapsed=collapsed)
 
 def reply(req, conversation_id):
     req.check_permission(u'send_mail')
@@ -210,14 +191,12 @@ def reply(req, conversation_id):
     if participation is None:
         raise Error403()
     
-    reply_form = ReplyForm(req)
-    reply_form.action = 'mail.reply', dict(conversation_id=conversation.conversation_id)
-    values = reply_form.values_dict()
+    reply_form_results = reply_form(req)
+    reply_form_results.action = 'mail.reply', dict(conversation_id=conversation.conversation_id)
     
-    if u'preview' not in values and reply_form.was_filled \
-            and not reply_form.errors:
+    if reply_form_results.successful and u'preview' not in reply_form_results:
         message = MailMessage(conversation, req.user,
-                              values['message'][0], values['message'][1])
+                              reply_form_results['message'][0], reply_form_results['message'][1])
         Session.save(message)
         for participant in conversation.participants:
             if participant != participation:
@@ -226,30 +205,21 @@ def reply(req, conversation_id):
         req.redirect('mail.conversation',
             conversation_id=conversation_id, reply_successful=1)
             
-    if u'preview' in values and reply_form.was_filled \
-            and not reply_form.errors:
-        preview = values['message'][1]
+    if reply_form_results.successful and u'preview' in reply_form_results:
+        preview = reply_form_results['message'][1]
     else:
         preview = None
-        
-    reply_form = reply_form.generate()
-    context = {
-        u'reply_form': reply_form,
-        u'preview': preview
-    }
-    return req.render_template('mail_reply.html', context)
-        
-class MultiDeleteForm(Form):
-    action = 'mail.multi_delete'
-    method = u'post'
     
-    fields = [
-        FormTokenField(),
-        HiddenField(u'delete', must_be_present=False),
-        HiddenField(u'page', must_be_present=False),
-        SubmitButton(title=u'Delete', id_=u'submit')
-    ]
-    
+    return req.render_template('mail_reply.mako',
+        reply_form=reply_form_results,
+        preview=preview)
+
+multi_delete_form = Form(u'post', 'mail.multi_delete',
+    FormTokenField(),
+    HiddenField(u'delete', must_be_present=False),
+    HiddenField(u'page', must_be_present=False),
+    SubmitButton(title=u'Delete', id_=u'submit'))
+
 def multi_delete(req):
     req.check_permission(u'delete_mail')
         
@@ -257,10 +227,9 @@ def multi_delete(req):
         u'delete': u','.join(req.form.getlist('del')),
         u'page': u'1'
     }
-    form = MultiDeleteForm(req, defaults)
-    if form.was_filled and not form.errors:
-        values = form.values_dict()
-        for id_ in values[u'delete'].split(u','):
+    results = multi_delete_form(req, defaults)
+    if results.successful:
+        for id_ in results[u'delete'].split(u','):
             try:
                 id_ = int(id_)
             except ValueError:
@@ -271,6 +240,6 @@ def multi_delete(req):
             participation = conversation.find_participant(req.user)
             if participation is not None:
                 participation.delete()
-        req.redirect('mail.inbox', page=values['page'])
+        req.redirect('mail.inbox', page=results[u'page'])
     else:
-        return req.render_template('multi_delete.html', form=form.generate())
+        return req.render_template('multi_delete.mako', form=results)

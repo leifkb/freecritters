@@ -6,4 +6,4 @@ def profile(req, username):
     user = User.find_user(username)
     if user is None:
         return None
-    return req.render_template('profile.html', user=user)
+    return req.render_template('profile.mako', user=user)

@@ -14,6 +14,7 @@ from freecritters.web.exceptions import Redirect302, Error304, Error403, \
 from freecritters.web.urls import urls
 from freecritters.web.util import absolute_url, LazyProperty, http_date, \
                                   parse_http_date
+from freecritters.web.globals import fc, global_manager
 from base64 import b64decode
 from urllib import urlencode
 
@@ -76,6 +77,10 @@ class Request(BaseRequest):
                 self.user = user
                 self.subaccount = subaccount
     
+    @property
+    def url_routing_js(self):
+        return generate_adapter(self.url_adapter)
+    
     def generate_response(self):
         try:
             name, args = self.url_adapter.match(self.path)
@@ -100,10 +105,10 @@ class Request(BaseRequest):
             # handler otherwise
             raise
         except (routing.NotFound, Error404), e:
-            response = self.render_template('errors/404.html')
+            response = self.render_template('errors/404.mako')
             response.status_code = 404
         except (routing.RequestRedirect, Redirect302), e:
-            response = self.render_template('errors/redirect.html',
+            response = self.render_template('errors/redirect.mako',
                                             new_url=e.new_url)
             response.status_code = 302
             response.headers['Location'] = e.new_url
@@ -111,10 +116,10 @@ class Request(BaseRequest):
             response = Response('')
             response.status_code = 304
         except Error403:
-            response = self.render_template('errors/403.html')
+            response = self.render_template('errors/403.mako')
             response.status_code = 403
         except Error401RSS:
-            response = self.render_template('errors/401.rss', mimetype='application/rss+xml')
+            response = self.render_template('errors/401_rss.mako', mimetype='application/rss+xml')
             response.status_code = 401
             response.headers['WWW-Authenticate'] = 'Basic realm="' + self.config.site.name.encode('utf8') + '"'
         return response
@@ -210,14 +215,13 @@ class Request(BaseRequest):
                        'url': self.url_for,
                        'url_routing_js': generate_adapter(self.url_adapter)}}
     
-    def render_template_to_string(self, template, context=None, **kwargs):
-        if context is not None:
-            kwargs.update(context)
-        kwargs.update(self.global_context())
-        return templates.env.get_template(template).render(kwargs)
+    def render_template_to_string(self, *args, **kwargs):
+        template = args[0]
+        args = args[1:]
+        return templates.loader.get_template(template).render(*args, **kwargs)
     
-    def render_template(self, template, context=None, mimetype=None, **kwargs):
-        return Response(self.render_template_to_string(template, context, **kwargs), mimetype=mimetype)                        
+    def render_template(self, *args, **kwargs):
+        return Response(self.render_template_to_string(*args, **kwargs))                        
     
     def url_for(self, endpoint, args=None, absolute=False, **kwargs):
         if args is not None:
@@ -264,6 +268,9 @@ def application(environ, start_response):
         environ['SCRIPT_NAME'] = ''
     url_adapter = urls.bind_to_environ(environ)
     req = Request(environ, url_adapter)
+    fc.req = req
+    fc.url = req.url_for
+    fc.config = req.config
     try:
         try:
             response = req.generate_response()
@@ -275,3 +282,5 @@ def application(environ, start_response):
         return response(environ, start_response)
     finally:
         Session.remove()
+
+application = global_manager.make_middleware(application)

@@ -2,15 +2,11 @@
 
 from freecritters import model
 from freecritters.web.form import Form, SubmitButton, HiddenField, TextField
-from freecritters.web.modifiers import FormTokenValidator
+from freecritters.web.modifiers import FormTokenField
 
-class LogoutForm(Form):
-    method = u'post'
-    action = 'logout'
-    fields = [
-        HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
-        SubmitButton(title=u'Yes', id_=u'submit')
-    ]
+logout_form = Form(u'post', 'logout',
+    FormTokenField(),
+    SubmitButton(title=u'Yes', id_=u'submit'))
 
 def delete_login_cookies(response):
     response.delete_cookie('login_id')
@@ -19,15 +15,16 @@ def delete_login_cookies(response):
 def logout(req):
     req.check_permission(None)
     if req.login is None: # HTTP Basic
-        return req.render_template('cant_log_out.html')
-    form = LogoutForm(req, {u'form_token': req.form_token()})
-    if form.was_filled and not form.errors:
+        return req.render_template('cant_log_out.mako')
+    
+    form = logout_form(req)
+    if form.successful:
         model.Session.delete(req.login)
         req.login = None
         req.user = None
         req.subaccount = None
-        response = req.render_template('logged_out.html')
+        response = req.render_template('logged_out.mako')
         delete_login_cookies(response)
         return response
     else:
-        return req.render_template('logout_form.html', form=form.generate())
+        return req.render_template('logout_form.mako', form=form)

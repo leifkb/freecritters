@@ -50,7 +50,8 @@ class User(PasswordHolder):
             return None
         else:
             return render_plain_text(self.pre_mail_message, 3)
-        
+    
+    @property
     def has_new_mail(self):
         last_mail_change = mailparticipant.MailParticipant.query.filter(and_(
             mail_participants.c.user_id==self.user_id,

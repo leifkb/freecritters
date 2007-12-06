@@ -9,5 +9,5 @@ class MailConversation(object):
     
     def find_participant(self, user):
         for participant in self.participants:
-            if participant.user == user:
+            if participant.user == user and not participant.deleted:
                 return participant

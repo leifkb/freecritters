@@ -73,14 +73,14 @@ class SubaccountModifier(Modifier):
         if value == u'':
             return None
         else:
-            user = form.modified_values[self.user_field]
+            user = form[self.user_field]
             subaccount = Subaccount.query.filter_by(user_id=user.user_id, name=value).first()
             if subaccount is None:
                 raise ValidationError(self.message)
             return subaccount
     
     def dependencies(self, form):
-        return set((form.fields_by_id[self.user_field], ))
+        return set((form.field(self.user_field),))
 
 class SubaccountNameNotTakenValidator(Modifier):
     """Validates that a subaccount name doesn't already exist."""
@@ -104,8 +104,8 @@ class PasswordValidator(Modifier):
         self.message = message
     
     def modify(self, value, form):
-        user = form.modified_values[self.user_field]
-        subaccount = form.modified_values[self.subaccount_field]
+        user = form[self.user_field]
+        subaccount = form[self.subaccount_field]
         if subaccount is not None:
             password_checker = subaccount
         else:
@@ -115,8 +115,8 @@ class PasswordValidator(Modifier):
         return value
         
     def dependencies(self, form):
-        return set((form.fields_by_id[self.user_field],
-                    form.fields_by_id[self.subaccount_field]))
+        return set((form.field(self.user_field),
+                    form.field(self.subaccount_field)))
 
 class CurrentPasswordValidator(Modifier):
     def __init__(self, message=u'Incorrect password.'):
@@ -141,9 +141,9 @@ class FormTokenValidator(Modifier):
         return value
 
 class FormTokenField(HiddenField):
+    type_name = 'HiddenField'
     def __init__(self, name=u'form_token', id_=None):
         super(FormTokenField, self).__init__(name, id_=id_, modifiers=[FormTokenValidator()])
-        self.type_name = 'HiddenField'
         
     def default_value(self, form):
         return form.req.form_token()

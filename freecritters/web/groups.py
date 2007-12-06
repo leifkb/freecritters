@@ -9,27 +9,24 @@ from freecritters.model import Session, User, Group, GroupMember
 from freecritters.web.paginator import Paginator
 from freecritters.web.modifiers import \
     FormTokenField, GroupNameNotTakenValidator, GroupTypeCompatibilityValidator
+from freecritters.web.globals import fc
 
-class CreateGroupForm(Form):
-    method = u'post'
-    action = 'groups.create_group'
-    fields = [
-        FormTokenField(),
-        TextField(u'name', u'Name', max_length=Group.name_length,
-                  modifiers=[RegexValidator(Group.name_regex,
-                                            message=u'Can only contain '
-                                                    u'letters, numbers, '
-                                                    u'spaces, hyphens, and '
-                                                    u'underscores. Can not '
-                                                    u'start with a number.'),
-                             GroupNameNotTakenValidator()]),
-        SelectMenu(u'type', u'Type', options=list((unicode(i), name) for i, name in enumerate(Group.type_names)),
-                   modifiers=[GroupTypeCompatibilityValidator()]),
-        TextArea(u'description', u'Description',
-                 u'Plain text. Limited to %s characters.' % Group.max_description_length,
-                 modifiers=[LengthValidator(25, Group.max_description_length)]),
-        SubmitButton(title=u'Create', id_=u'createbtn')
-    ]
+create_group_form = Form(u'post', 'groups.create_group',
+    FormTokenField(),
+    TextField(u'name', u'Name', max_length=Group.name_length,
+              modifiers=[RegexValidator(Group.name_regex,
+                                        message=u'Can only contain '
+                                                u'letters, numbers, '
+                                                u'spaces, hyphens, and '
+                                                u'underscores. Can not '
+                                                u'start with a number.'),
+                         GroupNameNotTakenValidator()]),
+    SelectMenu(u'type', u'Type', options=list((unicode(i), name) for i, name in enumerate(Group.type_names)),
+               modifiers=[GroupTypeCompatibilityValidator()]),
+    TextArea(u'description', u'Description',
+             u'Plain text. Limited to %s characters.' % Group.max_description_length,
+             modifiers=[LengthValidator(25, Group.max_description_length)]),
+    SubmitButton(title=u'Create', id_=u'createbtn'))
 
 def create_group(req):
     req.check_permission(u'groups')
@@ -37,20 +34,19 @@ def create_group(req):
     owned_group_count = Group.query.filter_by(owner_user_id=req.user.user_id).count()
     max_ownable_count = req.config.groups.ownable_per_user
     if max_ownable_count is not None and owned_group_count >= max_ownable_count:
-        return req.render_template('too_many_owned_groups.html',
+        return req.render_template('too_many_owned_groups.mako',
             owned_group_count=owned_group_count,
             max_ownable_count=max_ownable_count)
     
-    form = CreateGroupForm(req)
-    if form.was_filled and not form.errors:
-        values = form.values_dict()
-        group = Group(int(values[u'type']), values[u'name'], values[u'description'], req.user)
+    results = create_group_form(req)
+    if results.successful:
+        group = Group(int(results[u'type']), results[u'name'], results[u'description'], req.user)
         Session.save(group)
         Session.flush()
         req.redirect('groups.group', group_id=group.group_id)
     else:
-        return req.render_template('create_group_form.html',
-            form=form.generate())
+        return req.render_template('create_group_form.mako',
+            form=results)
 
 def groups(req):
     req.check_permission(u'groups')
@@ -64,7 +60,7 @@ def groups(req):
         ]).options(eagerload('group'))
     ]
     
-    return req.render_template('groups.html',
+    return req.render_template('groups.mako',
         groups=groups,
         left='left' in req.args)
 
@@ -80,39 +76,32 @@ order_names = [
     (u'oldest', u'Oldest')
 ]
 
-class GroupListSortForm(Form):
-    method = u'get'
-    action = 'groups.group_list'
-    field_prefix = u'sort'
-    fields = [
-        SelectMenu(u'order', u'Sort by', options=order_names),
-        SubmitButton(title=u'Sort', id_=u'submit')
-    ]
+group_list_sort_form = Form(u'get', 'groups.group_list',
+    SelectMenu(u'order', u'Sort by', options=order_names),
+    SubmitButton(title=u'Sort', id_=u'submit'),
+    id_prefix=u'sort_')
 
 group_list_paginator = Paginator(15)
 
 def group_list(req):
     req.check_permission(u'groups')
     
-    sort_form = GroupListSortForm(req, {u'order': u'members'})
-    order = orders[sort_form.values_dict()[u'order']]
+    results = group_list_sort_form(req, {u'order': u'members'})
+    order = orders[results[u'order']]
     
     groups = Group.query.order_by(order)
     paginated = group_list_paginator(req, groups)
 
-    return req.render_template('group_list.html',
+    return req.render_template('group_list.mako',
         max_group_type=req.user.max_group_type,
         groups=paginated.all(),
-        sort_form=sort_form.generate(),
+        sort_form=results,
         paginator=paginated
     )
 
-class JoinForm(Form):
-    method = u'post'
-    fields = [
-        FormTokenField(),
-        SubmitButton(title=u'Join', id_=u'submit')
-    ]
+join_form = Form(u'post', None,
+    FormTokenField(),
+    SubmitButton(title=u'Join', id_=u'submit'))
 
 def group(req, group_id):
     group = Group.query.get(group_id)
@@ -123,32 +112,29 @@ def group(req, group_id):
     if membership is None:
         is_member = False
         if group.can_coexist_with(req.user.max_group_type):
-            join_form = JoinForm(req)
-            join_form.action = 'groups.group', dict(group_id=group.group_id)
-            if join_form.was_filled and not join_form.errors:
+            join_results = join_form(req)
+            join_results.action = 'groups.group', dict(group_id=group.group_id)
+            if join_results.successful:
                 membership = GroupMember(req.user, group, group.default_role)
                 Session.save(membership)
-                join_form = None
+                join_results = None
                 is_member = True
-            else:
-                join_form = join_form.generate()
         else:
-            join_form = None
+            join_results = None
     else:
-        join_form = None
+        join_results = None
         is_member = True
-        
-    return req.render_template('group.html',
+    
+    fc.is_member = is_member # Kludge to allow dynamic inheritance
+    
+    return req.render_template('group.mako',
         group=group,
         is_member=is_member,
-        join_form=join_form)
+        join_form=join_results)
 
-class LeaveGroupForm(Form):
-    method = u'post'
-    fields = [
-        FormTokenField(),
-        SubmitButton(title=u'Yes, leave it', id_=u'submit')
-    ]
+leave_group_form = Form(u'post', None,
+    FormTokenField(),
+    SubmitButton(title=u'Yes, leave it', id_=u'submit'))
 
 def leave_group(req, group_id):
     group = Group.query.get(group_id)
@@ -157,21 +143,21 @@ def leave_group(req, group_id):
     req.check_group_permission(group, None)
     
     if req.user == group.owner:
-        return req.render_template('leave_group_form.html',
+        return req.render_template('leave_group_form.mako',
             group=group,
             is_owner=True)
         
-    form = LeaveGroupForm(req)
-    form.action = 'groups.leave_group', dict(group_id=group.group_id)
-    if form.was_filled and not form.errors:
+    results = leave_group_form(req)
+    results.action = 'groups.leave_group', dict(group_id=group.group_id)
+    if results.successful:
         membership = req.user.find_group_membership(group)
         Session.delete(membership)
         req.redirect('groups', left=1)
     else:
-        return req.render_template('leave_group_form.html',
+        return req.render_template('leave_group_form.mako',
             is_owner=False,
             group=group,
-            form=form.generate())
+            form=results)
 
 group_member_paginator = Paginator()
 
@@ -187,7 +173,7 @@ def group_members(req, group_id):
     ])
     paginated = group_member_paginator(req, members)
     
-    return req.render_template('group_members.html',
+    return req.render_template('group_members.mako',
         group=group,
         paginator=paginated,
         members=paginated.all())

@@ -185,6 +185,9 @@ td p {
 .newmail .mailsubjectcolumn {
     font-weight: bold;
 }
+#maildeletecheckedbtncontainer {
+    float: left;
+}
 .formfield textarea {
     width: 96%;
 }
@@ -388,15 +391,15 @@ width: 10em;
 #yourgroups .groupnamecol {
     width: 100%;
 }
-.groupmenu {
+#groupmenu {
     float: right;
-    margin: 0.25em;
+    margin-right: 0.25em;
     width: 11em;
     border-top: 1px solid #CCC;
     border-left: 1px solid #CCC;
     border-right: 1px solid #CCC;
 }
-.groupmenu h3 {
+#groupmenu h3 {
     margin: 0;
     padding: 0.1em;
     font-size: 1em;
@@ -406,17 +409,17 @@ width: 10em;
     color: black;
     border-bottom: 1px solid #CCC;
 }
-.groupmenu ul {
+#groupmenu ul {
     list-style: none;
     margin: 0;
     padding: 0;
 }
-.groupmenu li {
+#groupmenu li {
     display: block;
     padding: 0;
     margin: 0;
 }
-.groupmenu a {
+#groupmenu a {
     display: block;
     padding: 0.25em;
     padding-left: 1em;
@@ -425,10 +428,19 @@ width: 10em;
     color: black;
     text-decoration: none;
 }
-.groupmenu a:hover, .groupmenu a:focus {
+#groupmenu a:hover, #groupmenu a:focus {
     background: #EEE;
     color: black;
 }
+#groupcontent {
+    margin-right: 12em;
+}
 #groupmembers {
     width: 100%;
+}
+.groupmembersusernamecol {
+    width: 100%;
+}
+.groupmembersrolecol, .groupmembersjoinedcol {
+    white-space: nowrap;
 }

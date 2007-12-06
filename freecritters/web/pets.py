@@ -6,7 +6,7 @@ from freecritters.model import \
 from freecritters.web.application import Response
 from freecritters.web.form import Form, TextField, SelectMenu, ColorSelector, \
                                   SubmitButton, RegexValidator, HiddenField
-from freecritters.web.modifiers import FormTokenValidator, \
+from freecritters.web.modifiers import FormTokenField, \
                                        PetNameNotTakenValidator, \
                                        AppearanceModifier
 import ImageColor
@@ -29,52 +29,45 @@ def create_pet(req, species_id):
     if not appearance_list:
         return None
         
-    class CreatePetForm(Form):
-        method = u'post'
-        action = 'pets.create_pet', dict(species_id=species_id)
-        fields = [
-            HiddenField(u'form_token', modifiers=[FormTokenValidator()]),
-            TextField(u'pet_name', u'Name',
-                      modifiers=[RegexValidator(Pet.name_regex,
-                                                message=u'Can only contain '
-                                                        u'letters, numbers, '
-                                                        u'spaces, hyphens, and '
-                                                        u'underscores. Can not '
-                                                        u'start with a number.'),
-                                 PetNameNotTakenValidator()])
+    form = Form(u'post', ('pets.create_pet', dict(species_id=species.species_id)),
+        FormTokenField(),
+        TextField(u'pet_name', u'Name',
+                  modifiers=[RegexValidator(Pet.name_regex,
+                                            message=u'Can only contain '
+                                                    u'letters, numbers, '
+                                                    u'spaces, hyphens, and '
+                                                    u'underscores. Can not '
+                                                    u'start with a number.'),
+                             PetNameNotTakenValidator()]))
+                             
+    if len(appearance_list) > 1:
+        appearance_options = [
+            (appearance.appearance_id, appearance.name)
+            for appearance in appearance_list
         ]
-        if len(appearance_list) > 1:
-            appearance_options = [
-                (appearance.appearance_id, appearance.name)
-                for appearance in appearance_list
-            ]
-            fields.append(SelectMenu(u'appearance', u'Appearance',
-                                     options=appearance_options,
-                                     modifiers=[AppearanceModifier()]))
-            del appearance, appearance_options
-        fields.append(ColorSelector(u'color', u'Color'))
-        fields.append(SubmitButton(title=u'Submit', id_=u'submit'))
-        fields.append(SubmitButton(u'preview', u'Preview'))
+        form.add_field(SelectMenu(u'appearance', u'Appearance',
+                                  options=appearance_options,
+                                  modifiers=[AppearanceModifier()]))
+        del appearance, appearance_options
+    form.add_field(ColorSelector(u'color', u'Color'))
+    form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
+    form.add_field(SubmitButton(u'preview', u'Preview'))
         
-    defaults = {
-        u'form_token': req.form_token(),
-        u'color': (255, 0, 0)
-    }
-    form = CreatePetForm(req, defaults)
-
-    values = form.values_dict()
-    appearance = values.get(u'appearance', appearance_list[0])
+    defaults = {u'color': (255, 0, 0)}
+    
+    results = form(req, defaults)
+    appearance = results.get(u'appearance', appearance_list[0])
         
-    if form.was_filled and not form.errors and u'preview' not in values:
-        pet = Pet(values[u'pet_name'], req.user, species, appearance, values[u'color'])
+    if results.successful and u'preview' not in results:
+        pet = Pet(results[u'pet_name'], req.user, species, appearance, results[u'color'])
         Session.save(pet)
         req.redirect('pets.pet_list', created=1)
     else:
-        return req.render_template('create_pet_form.html',
+        return req.render_template('create_pet_form.mako',
             species=species,
             appearance=appearance,
-            color=values[u'color'],
-            form=form.generate())
+            color=results[u'color'],
+            form=results)
         
 def pet_image(req, species_id, appearance_id, color):
     species_appearance = SpeciesAppearance.query.filter_by(
@@ -94,7 +87,7 @@ def pet_image(req, species_id, appearance_id, color):
 
 def pet_list(req):
     req.check_permission(u'create_pet')
-    return req.render_template('pet_list.html',
+    return req.render_template('pet_list.mako',
         pets=req.user.pets.order_by(pets.c.unformatted_name).all(),
         created='created' in req.args
     )
@@ -106,16 +99,12 @@ def color_wheel(n):
         yield int(r * 255), int(g * 255), int(b * 255)
         
 def species_list(req):
-    req.check_permission(None)
+    req.check_permission(u'create_pet')
     items = []
     lst = list(Species.find_creatable())
     random.shuffle(lst)
     colors = color_wheel(len(lst))
     for species, color in izip(lst, colors):
         appearance = random.choice([sa for sa in species.species_appearances.filter(Appearance.creatable==True)]).appearance
-        items.append({
-            'species': species,
-            'appearance': appearance,
-            'color': color
-        })
-    return req.render_template('species_list.html', items=items)
+        items.append((species, appearance, color))
+    return req.render_template('species_list.mako', items=items)
