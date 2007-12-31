@@ -26,3 +26,7 @@
 % if join_form is not None:
 ${render_form(join_form)}
 % endif
+
+% if is_member:
+${group.rendered_home_page|n}
+% endif

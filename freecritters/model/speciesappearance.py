@@ -1,4 +1,5 @@
 import Image
+from time import time
 
 class SpeciesAppearance(object):    
     def __init__(self, species, appearance, white_picture, black_picture):

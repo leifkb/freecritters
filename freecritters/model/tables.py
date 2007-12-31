@@ -1,6 +1,6 @@
 from sqlalchemy import Table, Column, Integer, DateTime, MetaData, \
                        ForeignKey, Unicode, Binary, UniqueConstraint, \
-                       ForeignKeyConstraint, Index, Boolean
+                       ForeignKeyConstraint, Index, Boolean, String
 
 metadata = MetaData()
 
@@ -91,7 +91,7 @@ mail_messages = Table('mail_messages', metadata,
     Column('conversation_id', Integer,
            _foreign_key('mail_conversations.conversation_id', 'fkey__mail_messages__conversation_id'),
            nullable=False),
-    Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__mail_messages__user_id'), nullable=False),
+    Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__mail_messages__user_id'), nullable=True),
     Column('message', Unicode, nullable=False),
     Column('rendered_message', Unicode, nullable=False),
     Column('sent', DateTime(timezone=False), nullable=False)
@@ -142,7 +142,7 @@ pictures = Table('pictures', metadata,
     Column('description', Unicode, nullable=False),
     Column('width', Integer, nullable=False),
     Column('height', Integer, nullable=False),
-    Column('format', Unicode, nullable=False),
+    Column('format', String, nullable=False),
     Column('image', Binary, nullable=False)
 )
 
@@ -215,6 +215,8 @@ groups = Table('groups', metadata,
     Column('name', Unicode, nullable=False),
     Column('unformatted_name', Unicode, nullable=False),
     Column('description', Unicode, nullable=False),
+    Column('home_page', Unicode, nullable=False),
+    Column('rendered_home_page', Unicode, nullable=False),
     Column('owner_user_id', Integer, _foreign_key('users.user_id', name='fkey__groups__owner_user_id'), nullable=False),
     Column('member_count', Integer, nullable=False),
     UniqueConstraint('unformatted_name', name='uniq__groups__unformatted_name')
@@ -272,7 +274,7 @@ group_members = Table('group_members', metadata,
     Column('group_member_id', Integer, primary_key=True),
     Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__group_members__user_id'), nullable=False),
     Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__group_members__group_id'), nullable=False),
-    Column('group_role_id', Integer,_foreign_key('group_roles.group_role_id', 'fkey__group_members__group_role_id'),
+    Column('group_role_id', Integer, _foreign_key('group_roles.group_role_id', 'fkey__group_members__group_role_id'),
            nullable=False),
     Column('joined', DateTime(timezone=False), nullable=False),
     UniqueConstraint('user_id', 'group_id', name='uniq__group_members__user_id__group_id')
@@ -282,13 +284,57 @@ Index('idx__group_members__group_id__user_id',
       group_members.c.user_id
 )
 
+#group_bannings = Table('group_bannings', metadata,
+#    Column('group_banning_id', Integer, primary_key=True),
+#    Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__group_bannings__user_id'), nullable=False),
+#    Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__group_bannings__group_id'), nullable=False),
+#    Column('reason', 
+
 forums = Table('forums', metadata,
     Column('forum_id', Integer, primary_key=True),
     Column('group_id', Integer, _foreign_key('groups.group_id', 'fkey__forums__group_id')),
     Column('name', Unicode, nullable=False),
-    Column('order_num', Integer, nullable=False)
+    Column('order_num', Integer),
+    Column('thread_count', Integer, nullable=False),
+    Column('view_permission_id', Integer, _foreign_key('permissions.permission_id', 'fkey__forums__view_permission_id')),
+    Column('view_special_group_permission_id', Integer, _foreign_key('special_group_permissions.special_group_permission_id', 'fkey__forums__view_special_group_permission_id')),
+    Column('create_thread_permission_id', Integer, ForeignKey('permissions.permission_id', 'fkey__forums__create_thread_permission_id')),
+    Column('create_thread_special_group_permission_id', Integer, _foreign_key('special_group_permissions.special_group_permission_id', 'fkey__forums__create_thread_special_group_permission_id')),
+    Column('create_post_permission_id', Integer, _foreign_key('permissions.permission_id', 'fkey__forums__create_post_permission_id')),
+    Column('create_post_special_group_permission_id', Integer, _foreign_key('special_group_permissions.special_group_permission_id', 'fkey__forums__create_post_special_group_permission_id')),
 )
 Index('idx__forums__group_id__order_num',
     forums.c.group_id,
     forums.c.order_num
+)
+
+threads = Table('threads', metadata,
+    Column('thread_id', Integer, primary_key=True),
+    Column('forum_id', Integer, _foreign_key('forums.forum_id', 'fkey__threads__forum_id'), nullable=False),
+    Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__threads__user_id'), nullable=False),
+    Column('subject', Unicode, nullable=False),
+    Column('created', DateTime(timezone=False), nullable=False),
+    Column('post_count', Integer, nullable=False),
+    Column('last_post', DateTime(timezone=False))
+)
+Index('idx__threads__forum_id__last_post',
+    threads.c.forum_id,
+    threads.c.last_post
+)
+
+posts = Table('posts', metadata,
+    Column('post_id', Integer, primary_key=True),
+    Column('thread_id', Integer, _foreign_key('threads.thread_id', 'fkey__posts__thread_id'), nullable=False),
+    Column('user_id', Integer, _foreign_key('users.user_id', 'fkey__posts__user_id'), nullable=False),
+    Column('message', Unicode, nullable=False),
+    Column('rendered_message', Unicode, nullable=False),
+    Column('created', DateTime(timezone=False), nullable=False)
+)
+Index('idx__posts__thread_id__created',
+    posts.c.thread_id,
+    posts.c.created
+)
+Index('idx__posts__user_id__created',
+    posts.c.user_id,
+    posts.c.created
 )

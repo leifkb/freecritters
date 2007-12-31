@@ -106,6 +106,8 @@ def edit_subaccount(req, subaccount_id):
     subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
         return None
+    if subaccount.user != req.user:
+        raise Error403()
         
     form = Form(u'post', ('settings.edit_subaccount', dict(subaccount_id=subaccount_id)),
         FormTokenField(),
@@ -144,9 +146,11 @@ def delete_subaccount(req, subaccount_id):
     if req.subaccount is not None:
         raise Error403()
     
-    subaccount = req.user.subaccounts.get(subaccount_id)
+    subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
         return None
+    if subaccount.user != req.user:
+        raise Error403()
         
     form = subaccount_delete_form(req)
     form.action = 'settings.delete_subaccount', dict(subaccount_id=subaccount_id)
@@ -179,6 +183,8 @@ def change_subaccount_password(req, subaccount_id):
     subaccount = Subaccount.query.get(subaccount_id)
     if subaccount is None:
         return None
+    if subaccount.user != req.user:
+        raise Error403()
         
     form = subaccount_password_change_form(req)
     form.action = 'settings.change_subaccount_password', dict(subaccount_id=subaccount.subaccount_id)

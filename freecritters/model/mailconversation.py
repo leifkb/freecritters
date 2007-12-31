@@ -1,7 +1,7 @@
 from datetime import datetime
 
 class MailConversation(object):
-    max_subject_length = 45
+    max_subject_length = 60
     
     def __init__(self, subject):
         self.subject = subject

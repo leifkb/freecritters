@@ -12,6 +12,7 @@ from freecritters.web.application import Response
 from freecritters.web.exceptions import Error404, Error403
 from datetime import datetime
 from sqlalchemy import desc, and_
+from sqlalchemy.orm import eagerload
 import simplejson
 
 @returns_json
@@ -35,8 +36,13 @@ inbox_paginator = Paginator()
 def inbox(req):
     req.check_permission(u'view_mail')
 
-    participations = MailParticipant.find(req.user).order_by(
-        desc(MailParticipant.last_change))
+    participations = MailParticipant.find(req.user).options(
+        eagerload('conversation'),
+        eagerload('conversation.participants'),
+        eagerload('conversation.participants.user')
+    ).order_by(
+        desc(MailParticipant.last_change)
+    )
     
     req.user.last_inbox_view = datetime.utcnow()
     
@@ -142,7 +148,7 @@ def conversation(req, conversation_id):
     else:
         delete_form_results = None
             
-    if req.has_permission(u'send_mail'):
+    if req.has_permission(u'send_mail') and not participation.system:
         defaults = {}
         if 'quote' in req.args and req.args['quote'].isdigit():
             quoted_id = int(req.args['quote'])

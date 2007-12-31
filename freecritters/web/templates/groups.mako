@@ -4,6 +4,9 @@
 % if left:
 <p class="formsuccessful">Left group.</p>
 % endif
+% if deleted:
+<p class="formsuccessful">Deleted group.</p>
+% endif
 
 % if groups:
 <table class="normal" id="yourgroups">

@@ -43,11 +43,11 @@ addLoadEvent(function() {
         for (var j = 0; j < rows.length; j++) {
             var row = rows[j];
             addElementClass(row, j % 2 == 0 ? 'evenrow' : 'oddrow');
+            if (!getElementsByTagAndClassName('td', 'dedicatedtolink', row).length) continue;
             connect(row, 'onmouseover', function(e) {
                 addElementClass(e.src(), 'hoveredrow');
             });
             connect(row, 'onmouseout', function(e) {
-                log(e.src());
                 removeElementClass(e.src(), 'hoveredrow');
             });
         }

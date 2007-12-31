@@ -17,6 +17,7 @@ from freecritters.web.util import absolute_url, LazyProperty, http_date, \
 from freecritters.web.globals import fc, global_manager
 from base64 import b64decode
 from urllib import urlencode
+from sqlalchemy.orm import eagerload
 
 class Request(BaseRequest):
     charset = 'utf-8'
@@ -42,7 +43,11 @@ class Request(BaseRequest):
                 login_id = int(self.cookies['login_id'])
             except ValueError:
                 return
-            login = Login.query.get(login_id)
+            login = Login.query.options(
+                eagerload('user'),
+                eagerload('user.role'),
+                eagerload('subaccount')
+            ).get(login_id)
             if login is None:
                 return
             if login.code == self.cookies['login_code']:
@@ -164,7 +169,7 @@ class Request(BaseRequest):
             return False
         if permission is None:
             return True
-        return membership.role.has_permission(permission)
+        return membership.has_permission(permission)
     
     def check_group_permission(self, group, permission):
         if not self.has_group_permission(group, permission):
@@ -179,46 +184,16 @@ class Request(BaseRequest):
 
     def form_token_object(self):
         return FormToken.form_token_for(self.user, self.subaccount)
-        
-    def global_context(self):
-        '''Returns the global context dictionary, which is available to every
-        template.
-        '''
-        if self.user is None:
-            username = None
-            unformatted_username = None
-            user_id = None
-            subaccount_name = None
-            money = None
-            user_link = None
-            new_mail = False
-        else:
-            username = self.user.username
-            unformatted_username = self.user.unformatted_username
-            user_id = self.user.user_id
-            if self.subaccount is not None:
-                subaccount_name = req.subaccount.name
-            else:
-                subaccount_name = None
-            money = self.user.money
-            new_mail = self.has_permission(u'view_mail') \
-                       and self.user.has_new_mail()
-            
-        return {'fc': {'site_name': self.config.site.name,
-                       'unformatted_username': unformatted_username,
-                       'user_id': user_id,
-                       'username': username,
-                       'money': money,
-                       'new_mail': new_mail,
-                       'subaccount_name': subaccount_name,
-                       'request': self,
-                       'url': self.url_for,
-                       'url_routing_js': generate_adapter(self.url_adapter)}}
     
     def render_template_to_string(self, *args, **kwargs):
         template = args[0]
         args = args[1:]
         return templates.loader.get_template(template).render(*args, **kwargs)
+    
+    def render_template_to_unicode(self, *args, **kwargs):
+        template = args[0]
+        args = args[1:]
+        return templates.loader.get_template(template).render_unicode(*args, **kwargs)
     
     def render_template(self, *args, **kwargs):
         return Response(self.render_template_to_string(*args, **kwargs))                        
@@ -228,10 +203,13 @@ class Request(BaseRequest):
             kwargs.update(args)
         return self.url_adapter.build(endpoint, kwargs, absolute)
     
-    def redirect(self, endpoint, args=None, **kwargs):
+    def redirect(self, endpoint, args=None, fragment=None, **kwargs):
         if args is not None:
             kwargs.update(args)
-        raise Redirect302(self.url_for(endpoint, kwargs, True))
+        url = self.url_for(endpoint, kwargs, True)
+        if fragment is not None:
+            url += '#%s' % fragment
+        raise Redirect302(url)
     
     def check_modified(self, modified):
         if modified is None:

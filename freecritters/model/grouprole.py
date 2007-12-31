@@ -12,15 +12,13 @@ class GroupRole(object):
         if isinstance(permission, basestring):
             permission = StandardGroupPermission.find_label(permission)
         if isinstance(permission, StandardGroupPermission):
-            return bool(self.standard_permissions.filter(
-                standard_group_permissions.standard_group_permission_id \
-                    == permission.standard_group_permission_id
-            )[:1].count())
+            return bool(self.standard_permissions.filter_by(
+                standard_group_permission_id=permission.standard_group_permission_id
+            ).count())
         elif isinstance(permission, SpecialGroupPermission):
-            return bool(self.special_permissions.filter(
-                special_group_permissions.special_group_permission_id \
-                    == permission.special_group_permission_id
-            )[:1].count())
+            return bool(self.special_permissions.filter_by(
+                special_group_permission_id=permission.special_group_permission_id
+            ).count())
         elif permission is None:
             return True
         else:

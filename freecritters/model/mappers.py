@@ -1,12 +1,12 @@
 from sqlalchemy.orm import relation, backref, dynamic_loader
-
+from sqlalchemy import and_, select
 from freecritters.model.tables import \
     users, subaccounts, logins, form_tokens, mail_conversations, \
     mail_participants, mail_messages, permissions, roles, role_permissions, \
     subaccount_permissions, pictures, resized_pictures, species, appearances, \
     species_appearances, pets, groups, standard_group_permissions, \
     special_group_permissions, group_roles, group_role_standard_permissions, \
-    group_role_special_permissions, group_members, forums
+    group_role_special_permissions, group_members, forums, threads, posts
 from freecritters.model.session import Session
 from freecritters.model.user import User
 from freecritters.model.subaccount import Subaccount
@@ -29,6 +29,8 @@ from freecritters.model.specialgrouppermission import SpecialGroupPermission
 from freecritters.model.grouprole import GroupRole
 from freecritters.model.groupmember import GroupMember
 from freecritters.model.forum import Forum
+from freecritters.model.thread import Thread
+from freecritters.model.post import Post
 from freecritters.model.util import FieldCopierExtension, CountKeeperExtension
 
 mapper = Session.mapper
@@ -62,7 +64,7 @@ mapper(MailParticipant, mail_participants, properties={
 
 mapper(MailMessage, mail_messages, properties={
     'conversation': relation(MailConversation, backref=backref('messages', lazy='dynamic', cascade='all', passive_deletes=True)),
-    'user': relation(User, backref=backref('mail_messages', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+    'user': relation(User, backref=backref('mail_messages', lazy='dynamic', cascade='all', passive_deletes=True))
 })
 
 mapper(Permission, permissions)
@@ -98,7 +100,7 @@ mapper(Group, groups, properties={
 })
 
 mapper(StandardGroupPermission, standard_group_permissions, properties={
-    'roles': relation(GroupRole, secondary=group_role_standard_permissions, backref=backref('standard_permission', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+    'roles': relation(GroupRole, secondary=group_role_standard_permissions, backref=backref('standard_permissions', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
 })
 
 mapper(SpecialGroupPermission, special_group_permissions, properties={
@@ -117,5 +119,22 @@ mapper(GroupMember, group_members, properties={
 }, extension=CountKeeperExtension('group', 'member_count'))
 
 mapper(Forum, forums, properties={
-    'group': relation(Group, backref=backref('forums', lazy='dynamic', cascade='all', passive_deletes=True))
+    'group': relation(Group, backref=backref('forums', lazy='dynamic', cascade='all', passive_deletes=True)),
+    'view_permission': relation(Permission, primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
+    'view_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
+    'create_thread_permission': relation(Permission, primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
+    'create_thread_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
+    'create_post_permission': relation(Permission, primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
+    'create_post_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True))
 }, extension=FieldCopierExtension(forum_id='order_num'))
+
+mapper(Thread, threads, properties={
+    'forum': relation(Forum, backref=backref('threads', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
+    'user': relation(User, backref=backref('threads', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+}, extension=CountKeeperExtension('forum', 'thread_count'))
+
+mapper(Post, posts, properties={
+    'thread': relation(Thread, backref=backref('posts', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
+    'user': relation(User, backref=backref('posts', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
+    'membership': relation(GroupMember, foreign_keys=[posts.c.thread_id], primaryjoin=and_(group_members.c.user_id==posts.c.user_id, group_members.c.group_id==select([forums.c.group_id], and_(forums.c.forum_id==threads.c.forum_id, threads.c.thread_id==posts.c.thread_id), [forums, threads])), viewonly=True)
+}, extension=CountKeeperExtension('thread', 'post_count'))

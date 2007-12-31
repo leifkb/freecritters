@@ -38,9 +38,14 @@ ${render_form(delete_form)}
 
 % for message in messages:
 <div class="mailmessage" id="mailmessage${message.message_id}">
-<p class="mailmessageheader">Sent ${datetime(message.sent)} by <a href="${fc.url('profile', username=message.user.unformatted_username)}">${message.user.username}</a>\
+<p class="mailmessageheader">Sent ${datetime(message.sent)} by \
+% if message.user is None:
+<em>the system</em>\
+% else:
+<a href="${fc.url('profile', username=message.user.unformatted_username)}">${message.user.username}</a>\
+% endif
 % if reply_form:
- &ndash; <a href="${fc.url('mail.conversation', conversation_id=conversation.conversation_id, quote=message.message_id)}" onclick="quote('message', ${dumps(message.message)}; return false;">quote</a>\
+ &ndash; <a href="${fc.url('mail.conversation', conversation_id=conversation.conversation_id, quote=message.message_id)}" onclick="quote('message', ${dumps(message.message)}); return false;">quote</a>\
 % endif
 </p>
 <div class="mailmessagebody">${message.rendered_message|n}</div>

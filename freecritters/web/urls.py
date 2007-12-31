@@ -17,7 +17,7 @@ urls = Map([
     Rule('/subaccounts/<int:subaccount_id>/edit', endpoint='settings.edit_subaccount'),
     Rule('/subaccounts/<int:subaccount_id>/delete', endpoint='settings.delete_subaccount'),
     Rule('/subaccounts/<int:subaccount_id>/change_password', endpoint='settings.change_subaccount_password'),
-    Rule('/pictures/<int:picture_id>', defaults={'size': u'full'}, endpoint='pictures.picture'),
+    Rule('/pictures/<int:picture_id>/', defaults={'size': u'full'}, endpoint='pictures.picture'),
     Rule('/pictures/<int:picture_id>/<size>', endpoint='pictures.picture'),
     Rule('/mail/', endpoint='mail.inbox'),
     Rule('/mail/.rss', endpoint='mail.inbox_rss'),
@@ -36,6 +36,18 @@ urls = Map([
     Rule('/groups/<int:group_id>/', endpoint='groups.group'),
     Rule('/groups/<int:group_id>/leave', endpoint='groups.leave_group'),
     Rule('/groups/<int:group_id>/members', endpoint='groups.group_members'),
+    Rule('/groups/<int:group_id>/members/<username>/edit', endpoint='groups.edit_member'),
+    Rule('/groups/<int:group_id>/members/<username>/remove', endpoint='groups.remove_member'),
+    Rule('/groups/<int:group_id>/members/<username>/make_owner', endpoint='groups.change_owner'),
+    Rule('/groups/<int:group_id>/edit', endpoint='groups.edit_group'),
+    Rule('/groups/<int:group_id>/delete', endpoint='groups.delete_group'),
+    Rule('/groups/<int:group_id>/forums', endpoint='forums'),
+    Rule('/groups/<int:group_id>/create_forum', endpoint='groups.create_forum'),
+    Rule('/forums/', endpoint='forums', defaults={'group_id': None}),
+    Rule('/forums/<int:forum_id>/', endpoint='forums.forum'),
+    Rule('/forums/<int:forum_id>/create_thread', endpoint='forums.create_thread'),
+    Rule('/forums/threads/<int:thread_id>/', endpoint='forums.thread'),
+    Rule('/forums/threads/<int:thread_id>/post', endpoint='forums.create_post'),
     Rule('/static/<path:fn>', endpoint='static'),
     Rule('/urls.js', endpoint='urls.urls_js')
 ], charset='utf-8', converters={'color': ColorConverter})
@@ -44,9 +56,7 @@ last_modified = datetime.utcfromtimestamp(stat(__file__).st_mtime)
 
 def urls_js(req):
     from freecritters.web.application import Response
-    if req.environ.get('HTTP_IF_MODIFIED_SINCE') == http_date(last_modified):
-        return Response('', 304)
+    req.check_modified(last_modified)
     js = 'var url_map = %s;' % generate_map(urls, None)
-    response = Response(js, mimetype='text/javascript')
-    response.headers['Last-Modified'] = http_date(last_modified)
-    return response
+    response = Response(js, mimetype='application/javascript')
+    return response.last_modified(last_modified, False)

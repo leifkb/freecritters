@@ -15,6 +15,7 @@ import random
 from colorsys import hsv_to_rgb
 from itertools import izip
 from sqlalchemy import and_
+from sqlalchemy.orm import eagerload
 
 def create_pet(req, species_id):
     req.check_permission(u'create_pet')
@@ -72,6 +73,9 @@ def create_pet(req, species_id):
 def pet_image(req, species_id, appearance_id, color):
     species_appearance = SpeciesAppearance.query.filter_by(
         species_id=species_id, appearance_id=appearance_id
+    ).options(
+        eagerload('white_picture'),
+        eagerload('black_picture')
     ).first()
     if species_appearance is None:
         return None
@@ -87,8 +91,13 @@ def pet_image(req, species_id, appearance_id, color):
 
 def pet_list(req):
     req.check_permission(u'create_pet')
+    pets = req.user.pets.options(
+        eagerload('species_appearance'),
+        eagerload('species_appearance.species'),
+        eagerload('species_appearance.appearance')
+    ).order_by(Pet.unformatted_name).all()
     return req.render_template('pet_list.mako',
-        pets=req.user.pets.order_by(pets.c.unformatted_name).all(),
+        pets=pets,
         created='created' in req.args
     )
 

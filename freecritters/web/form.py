@@ -95,7 +95,7 @@ class LengthValidator(Modifier):
         self.max_len = max_len
         if message is None:
             if min_len is not None and max_len is not None:
-                message = u'Must be %s-%s (inclusive) characters.' \
+                message = u'Must be %s-%s characters long.' \
                                                 % (min_len, max_len)
             elif max_len is not None:
                 message = u'Must be at most %s characters long' % max_len
@@ -126,6 +126,9 @@ class SameAsValidator(Modifier):
                                 % form.field_results(self.other_field_id).field.title
                 raise ValidationError(message)
         return value
+    
+    def dependencies(self, value, results):
+        return set([results.form.field(self.other_field_id)])
 
 class RegexValidator(Modifier):
     """Validates that a text field matches a regex."""
@@ -155,6 +158,27 @@ class BlankToNoneModifier(Modifier):
             return u''
         else:
             return value
+
+class NotBlankValidator(Modifier):
+    """Validates that a string isn't blank (empty or all spaces)."""
+    
+    def __init__(self, message=u'Must not be blank.'):
+        self.message = message
+    
+    def modify(self, value, form):
+        if not value or value.isspace():
+            raise ValidationError(self.message)
+        return value
+
+class SpecificValueValidator(Modifier):
+    def __init__(self, correct_value, message=u'Please enter the correct value.'):
+        self.correct_value = correct_value
+        self.message = message
+    
+    def modify(self, value, form):
+        if value != self.correct_value:
+            raise ValidationError(self.message)
+        return value
 
 class ColorModifier(Modifier):
     """Modifies a color name or hex string into an (r, g, b) tuple, where

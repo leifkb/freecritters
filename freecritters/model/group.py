@@ -13,19 +13,23 @@ class Group(object):
     def __init__(self, type, name, description, owner):
         from freecritters.model.groupmember import GroupMember
         from freecritters.model.grouprole import GroupRole
+        from freecritters.model.standardgrouppermission import StandardGroupPermission
+        standard_permissions = StandardGroupPermission.query.all()
         self.type = type
         self.change_name(name)
         self.description = description
+        self.home_page = home_page
+        self.rendered_home_page = rendered_home_page
         self.owner = owner
         self.member_count = 0
+        self.created = datetime.utcnow()
+        admin_role = GroupRole(self, u'Administrator')
+        for permission in standard_permissions:
+            admin_role.standard_permissions.append(permission)
         default_role = GroupRole(self, u'Member')
         default_role.is_default = True
-        Session.save(default_role)
-        admin_role = GroupRole(self, u'Administrator')
-        Session.save(admin_role)
-        Session.save(GroupMember(owner, self, admin_role))
-        self.created = datetime.utcnow()
-    
+        GroupMember(owner, self, admin_role)
+        
     _unformat_name_regex = re.compile(ur'[^a-zA-Z0-9]+')
     @classmethod
     def unformat_name(self, name):

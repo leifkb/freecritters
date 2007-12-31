@@ -27,13 +27,18 @@ body {
     margin: 0.5em;
     margin-left: 0;
     padding: 0.5em;
+    height: 100%; /* IE */
+}
+#content:after {
+    content: " ";
+    display: block;
+    height: 0;
+    font-size: 0;
+    line-height: 0;
+    clear: both;
 }
 .clearhack {
     clear: both;
-    height: 0;
-    width: 0;
-    font-size: 0.1px;
-    line-height: 0.01;
 }
 #contenttitle {
     margin-top: 0;
@@ -53,23 +58,41 @@ a:link, a:visited {
 a:hover {
     color: #749ded;
 }
-#nav {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+#navs {
     position: absolute;
     left: 0.5em;
+    width: 11em;
+}
+.nav {
+    margin-top: 1em;
     width: 11em;
     border-left: 1px solid #CCC;
     border-top: 1px solid #CCC;
     border-right: 1px solid #CCC;
 }
-#nav li {
+#primarynav {
+    margin-top: 0;
+}
+.nav ul {
+    width: 11em;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.nav li {
     display: block;
     padding: 0;
     margin: 0;
+    background: white;
+    color: black;
+    border-bottom: 1px solid #CCC;
 }
-#nav a {
+.nav li:hover {
+    /* Safari */
+    background: #EEE;
+    color: black;
+}
+.nav a {
     display: block;
     width: 9.75em;
     background: white;
@@ -77,11 +100,19 @@ a:hover {
     text-decoration: none;
     padding: 0.25em;
     padding-left: 1em;
-    border-bottom: 1px solid #CCC;
 }
-#nav a:hover, #nav a:focus {
+.nav a:hover, .nav a:focus {
     background: #EEE;
     color: black;
+}
+.nav h2 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: bold;
+    text-align: center;
+    background: #CAD6F9;
+    color: black;
+    border-bottom: 1px solid #CCC;
 }
 .formfieldtitle {
     font-weight: bold;
@@ -259,6 +290,7 @@ blockquote {
     margin: 0;
     padding: 0;
     margin-left: 1em;
+    margin-top: 0.5em;
     border-left: 3px solid #BBB;
     padding-left: 0.5em;
 }
@@ -349,7 +381,7 @@ li > p:first-child {
     padding: 0;
     margin: 0;
 }
-.tabs li a {
+.tabs li a, .tabs li a:visited {
     padding: 0 0.5em;
     background: white;
     color: black;
@@ -368,12 +400,6 @@ li > p:first-child {
 }
 img {
     border: 0 none;
-}
-#secondarynav {
-    float: right;
-    border-left: 1px dotted #CCC;
-    padding-left: 0.5em;
-width: 10em;
 }
 #yourgroups {
     float: right;
@@ -399,16 +425,7 @@ width: 10em;
     border-left: 1px solid #CCC;
     border-right: 1px solid #CCC;
 }
-#groupmenu h3 {
-    margin: 0;
-    padding: 0.1em;
-    font-size: 1em;
-    font-weight: bold;
-    text-align: center;
-    background: #CAD6F9;
-    color: black;
-    border-bottom: 1px solid #CCC;
-}
+
 #groupmenu ul {
     list-style: none;
     margin: 0;
@@ -425,6 +442,7 @@ width: 10em;
     padding-left: 1em;
     width: 9.75em;
     border-bottom: 1px solid #CCC;
+    background: white;
     color: black;
     text-decoration: none;
 }
@@ -435,6 +453,9 @@ width: 10em;
 #groupcontent {
     margin-right: 12em;
 }
+#groupcontentinner {
+    _width: 99%; /* IE */
+}
 #groupmembers {
     width: 100%;
 }
@@ -442,5 +463,34 @@ width: 10em;
     width: 100%;
 }
 .groupmembersrolecol, .groupmembersjoinedcol {
+    white-space: nowrap;
+}
+.threadsubjectcol {
+    width: 100%;
+}
+.threadauthorcol, .threadlastpostcol, .threadpostscol {
+    white-space: nowrap;
+}
+.threadposts {
+    width: 100%;
+}
+.threadposts td {
+    vertical-align: top;
+}
+.postrow:target, .postrow:target td {
+    background: #F5F499 !important;
+    color: black;
+}
+.postmetacol {
+    width: 10em;
+}
+.postcreated {
+    text-align: center;
+    margin: 0.75em 0;
+}
+.forumnamecol {
+    width: 100%;
+}
+.forumthreadcountcol {
     white-space: nowrap;
 }

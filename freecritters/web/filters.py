@@ -9,6 +9,6 @@ def integer(n):
         groups.append(n[i:i+3])
     return u'\N{NO-BREAK SPACE}'.join(groups)
 
-def datetime(t):
+def datetime(t, sep=u'\N{NO-BREAK SPACE}'):
     t = t.replace(microsecond=0)
-    return t.isoformat('T').decode('ascii').replace('T', u'\N{NO-BREAK SPACE}')
+    return t.isoformat('T').decode('ascii').replace('T', sep)

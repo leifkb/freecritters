@@ -2,6 +2,7 @@ var CROSSHAIRS_LOCATION = url_for('static', {fn: 'crosshairs.png'});
 var HUE_SLIDER_LOCATION = url_for('static', {fn: 'hueslider.png'});
 var HUE_SLIDER_ARROWS_LOCATION = url_for('static', {fn: 'huesliderposition.png'});
 var SAT_VAL_SQUARE_LOCATION = url_for('static', {fn: 'satvalsquare.png'});
+var SPACER_LOCATION = url_for('static', {fn: 'spacer.png'});
 
 var arVersion = navigator.appVersion.split("MSIE");
 var version = parseFloat(arVersion[1]);
@@ -90,17 +91,28 @@ crossHairsImg.height = 21;
 crossHairsImg.src = CROSSHAIRS_LOCATION;
 crossHairsImg.style.position = 'absolute';
 
+var spacerKludgeImg = document.createElement('img');
+spacerKludgeImg.galleryImg = false;
+spacerKludgeImg.width = 280;
+spacerKludgeImg.height = 1;
+spacerKludgeImg.src = SPACER_LOCATION;
+spacerKludgeImg.style.display = 'block';
+
 function makeColorSelector(inputBox) {
+    var wrapper = DIV();
+    wrapper.appendChild(spacerKludgeImg.cloneNode(false));
+    
     var colorSelectorDiv = DIV();
     colorSelectorDiv.style.padding = '15px';
     colorSelectorDiv.style.position = 'relative';
     colorSelectorDiv.style.height = '275px';
     colorSelectorDiv.style.width = '250px';
+    wrapper.appendChild(colorSelectorDiv);
     
     if (inputBox == undefined) {
         inputBox = INPUT({'type': 'text', 'class': 'color'});
     } else {
-        swapDOM(inputBox, colorSelectorDiv);
+        swapDOM(inputBox, wrapper);
     }
     
     var color = Color.fromString(inputBox.value) || Color.redColor();
@@ -108,7 +120,9 @@ function makeColorSelector(inputBox) {
     var hsv = color.asHSV();
     
     var satValDiv = DIV();
-    satValDiv.style.position = 'relative';
+    satValDiv.style.position = 'absolute';
+    satValDiv.style.left = '15px';
+    satValDiv.style.top = '15px';
     satValDiv.style.width = '200px';
     satValDiv.style.height = '200px';
     var newSatValImg = fixPNG(satValImg);

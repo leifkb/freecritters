@@ -36,20 +36,24 @@
 
             <div class="clearhack">&nbsp;</div>
         </div>
-        <ul id="nav">\
+        <div id="navs">
+            <div class="nav" id="primarynav"><ul>\
 <li><a href="${fc.url('home')}">Home</a></li>\
 <li>\
-                % if fc.req.user is not None and fc.req.user.has_new_mail:
+<%              has_new_mail = fc.req.user is not None and fc.req.user.has_new_mail %>\
+                % if has_new_mail:
 <strong>\
                 % endif
 <a href="${fc.url('mail.inbox')}">Mail</a>\
-                % if fc.req.user is not None and fc.req.user.has_new_mail:
+                % if has_new_mail:
 </strong>\
                 % endif
 </li>\
 <li><a href="${fc.url('pets.pet_list')}">Pets</a></li>\
 <li><a href="${fc.url('groups')}">Groups</a></li>\
-</ul>
+</ul></div>
+            ${self.secondarynav()}
+        </div>
         <div id="main">
             <h2 id="contenttitle">${self.title()}</h2>
 <% tabs = self.tabs() %>\
@@ -58,12 +62,13 @@
             % endif
             <div id="content">
                 ${next.body()}
-                <div class="clearhack">&nbsp;</div>
+##                <div class="clearhack">o hai</div>
             </div>
         </div>
     </body>
 </html>\
 <%def name="head()"/>\
+<%def name="secondarynav()"/>\
 <%def name="tabs()"><% return None %></%def>\
 <%def name="active_tab()"><% return fc.req.endpoint %></%def>\
 <%def name="render_tabs(tabs)">\
