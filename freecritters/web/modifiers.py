@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from freecritters.web.form import HiddenField, Modifier, ValidationError
 from freecritters.model import User, Subaccount, FormToken, Pet, Appearance, Group
 from freecritters.textformats import render_html
+from HTMLParser import HTMLParseError
 
 class UsernameNotTakenValidator(Modifier):
     """Validates that a username isn't taken."""
@@ -148,15 +149,16 @@ class FormTokenField(HiddenField):
     def default_value(self, form):
         return form.req.form_token()
       
-class HtmlModifier(Modifier):
-    def __init__(self, message=u"Couldn't parse your text: %s"):
-        self.message = message
-    
+class HtmlModifier(Modifier):    
     def modify(self, value, form):
         try:
             rendered_value = render_html(value)
-        except ValueError, e:
-            raise ValidationError(self.message % e.message)
+        except HTMLParseError, e:
+            try:
+                message = u"There's something wrong with your HTML on line %s." % e.lineno
+            except AttributeError:
+                message = u"There's something wrong with your HTML."
+            raise ValidationError(message)
         return value, rendered_value
         
     def unmodify(self, value, form):

@@ -23,7 +23,7 @@ class Permission(object):
         
         if result and subaccount is not None:
             result = bool(subaccount.permissions.filter_by(
-                permission_id==self.permission_id
+                permission_id=self.permission_id
             ).count())
         
         return result

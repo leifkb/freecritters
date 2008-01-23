@@ -2,6 +2,10 @@
 <%namespace file="paginator.mako" import="render_paginator_in_box"/>\
 <%def name="title()">Forum: ${forum.name}</%def>\
 
+% if thread_deleted:
+<p class="formsuccessful">Thread deleted.</p>
+% endif
+
 % if not threads:
 <p>This forum is empty.</p>
 % else:

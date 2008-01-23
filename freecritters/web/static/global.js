@@ -1,4 +1,4 @@
-function setCaretToEnd (element) {
+function setCaretToEnd(element) {
     var pos = element.value.length;
     if (element.createTextRange) {
         var range = element.createTextRange();
@@ -7,6 +7,27 @@ function setCaretToEnd (element) {
     } else if (element.setSelectionRange) {
         element.setSelectionRange(pos, pos);
     }
+}
+
+function makePostRequest(url, data) {
+    var form = document.createElement('form');
+    form.style.display = 'none';
+    document.body.appendChild(form);
+    form.method = 'post';
+    form.action = url;
+    /* input can't go directly inside form in strict */
+    var formDiv = document.createElement('div');
+    form.appendChild(formDiv);
+    for (var key in data) {
+        if (typeof(data[key]) !== 'function') {
+            var field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = key;
+            field.value = data[key].toString();
+            formDiv.appendChild(field);
+        }
+    }
+    form.submit();
 }
 
 function quote(field_id, message) {
@@ -51,5 +72,21 @@ addLoadEvent(function() {
                 removeElementClass(e.src(), 'hoveredrow');
             });
         }
+    }
+});
+
+addLoadEvent(function() {
+    if (form_token === null) {
+        return;
+    }
+    var links = getElementsByTagAndClassName('a', 'confirm');
+    for (var i = 0; i < links.length; i++) {
+        var link = links[i];
+        connect(link, 'onclick', function(e) {
+            if (confirm('Are you sure you want to do that?')) {
+                makePostRequest(this.href, {'form_token': form_token});
+            }
+            e.preventDefault();
+        });
     }
 });

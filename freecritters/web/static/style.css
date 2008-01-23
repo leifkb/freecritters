@@ -494,3 +494,6 @@ img {
 .forumthreadcountcol {
     white-space: nowrap;
 }
+.navnewmail {
+    color: red;
+}

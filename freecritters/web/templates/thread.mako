@@ -4,10 +4,19 @@
 <%! from simplejson import dumps %>\
 <%def name="title()">Thread: ${thread.subject}</%def>\
 
+% if post_deleted:
+<p class="formsuccessful">Post deleted.</p>
+% endif
+
+% if fc.req.has_named_permission(group, u'moderate'):
+<p><a href="${fc.url('forums.delete_thread', thread_id=thread.thread_id)}" class="confirm">Delete</a></p>
+% endif
+
 % if not posts:
 <p>No posts in this thread.</p>
 % else:
 ${render_paginator_in_box(paginator)}
+<% can_delete = fc.req.has_named_permission(group, u'moderate') %>\
 <table class="threadposts normal">
     <thead>
         <tr>
@@ -27,6 +36,9 @@ ${render_paginator_in_box(paginator)}
                 <div class="postcreated">${datetime(post.created, u'<br>')|n}</div>
                 % if form:
                 <div><a href="${fc.url('forums.thread', thread_id=thread.thread_id, quote=post.post_id)}#message" onclick="quote('message', ${dumps(post.message)}); return false;">Quote</a></div>
+                % endif
+                % if can_delete:
+                <div><a href="${fc.url('forums.delete_post', post_id=post.post_id)}" class="confirm">Delete</a></div>
                 % endif
             </td>
             <td class="postmessagecol">${post.rendered_message|n}</td>

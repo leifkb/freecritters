@@ -51,7 +51,7 @@ mapper(Login, logins, properties={
 
 mapper(FormToken, form_tokens, properties={
     'user': relation(User, backref=backref('form_tokens', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
-    'suabccount': relation(Subaccount, backref=backref('form_tokens', lazy='dynamic', cascade='all', passive_deletes=True))
+    'subaccount': relation(Subaccount, backref=backref('form_tokens', lazy='dynamic', cascade='all', passive_deletes=True))
 })
 
 mapper(MailConversation, mail_conversations)

@@ -127,8 +127,8 @@ class SameAsValidator(Modifier):
                 raise ValidationError(message)
         return value
     
-    def dependencies(self, value, results):
-        return set([results.form.field(self.other_field_id)])
+    def dependencies(self, form):
+        return set([form.field(self.other_field_id)])
 
 class RegexValidator(Modifier):
     """Validates that a text field matches a regex."""
@@ -368,6 +368,7 @@ class Form(object):
         self._fields_by_id = {}
         self.id_prefix = kws.pop('id_prefix', u'')
         self.reliable_field = kws.pop('reliable_field', None)
+        self.accept_all_data = kws.pop('accept_all_data', method == 'get')
         self._dependency_ordered_fields = None
         if kws:
             raise ArgumentError("Unknown keyword argument(s): %r" % kws.keys())
@@ -464,11 +465,13 @@ class FormResults(object):
                 pass
         defaults.update(form_defaults)
         
-        if form.method == u'get':
+        if form.accept_all_data:
+            data = req.values
+        elif form.method == 'get':
             data = req.args
         else:
             data = req.form
-            
+              
         for field in form.dependency_ordered_fields:
             error = None
             value = None

@@ -19,7 +19,7 @@ them to be able to read your mail or anything else.</p>
 % if subaccounts:
 <ul>
     % for subaccount in subaccounts:
-    <li>${subaccount.name} <a href="${fc.url('settings.edit_subaccount', subaccount_id=subaccount.subaccount_id)}">(edit)</a> <a href="${fc.url('settings.change_subaccount_password', subaccount_id=subaccount.subaccount_id)}">(change password)</a> <a href="${fc.url('settings.delete_subaccount', subaccount_id=subaccount.subaccount_id)}">(delete)</a></li>
+    <li>${subaccount.name} <a href="${fc.url('settings.edit_subaccount', subaccount_id=subaccount.subaccount_id)}">(edit)</a> <a href="${fc.url('settings.change_subaccount_password', subaccount_id=subaccount.subaccount_id)}">(change password)</a> <a href="${fc.url('settings.delete_subaccount', subaccount_id=subaccount.subaccount_id)}" class="confirm">(delete)</a></li>
     % endfor
 </ul>
 % endif

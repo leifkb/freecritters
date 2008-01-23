@@ -40,6 +40,30 @@ def edit_profile(req):
         form=form,
         updated=updated)
 
+change_password_form = Form(u'post', 'settings.change_password',
+    FormTokenField(),
+    PasswordField(u'currentpassword', u'Current password',
+                  modifiers=[CurrentPasswordValidator()]),
+    PasswordField(u'newpassword', u'New password',
+                  modifiers=[LengthValidator(3)]),
+    PasswordField(u'newpassword2', u'Re-enter new password',
+                  modifiers=[SameAsValidator(u'newpassword')]),
+    SubmitButton(id_=u'submitbtn', title=u'Submit'))
+
+def change_password(req):
+    req.check_permission(None)
+    if req.subaccount is not None:
+        raise Error403()
+    
+    results = change_password_form(req)
+    if results.successful:
+        req.user.change_password(results[u'newpassword'])
+        req.redirect('settings.change_password', changed=1)
+    else:
+        return req.render_template('change_password.mako',
+            changed='changed' in req.args,
+            form=results)
+
 def add_subaccount_permission_fields(form, user):
     for permission in user.role.permissions:
         form.add_field(CheckBox(
@@ -87,6 +111,7 @@ def create_subaccount(req):
     add_subaccount_permission_fields(form, req.user)
     form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
     
+    open('/tmp/foo', 'w').write(repr(req.environ))
     results = form(req)
     if results.successful:
         subaccount = Subaccount(req.user, results[u'name'], results[u'password'])

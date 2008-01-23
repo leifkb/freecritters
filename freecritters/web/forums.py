@@ -3,22 +3,11 @@ from freecritters.web.paginator import Paginator
 from freecritters.model import Session, Forum, Thread, Post, GroupRole, \
                                GroupMember, Group
 from freecritters.web.form import Form, TextField, TextArea, SubmitButton, \
-                                  LengthValidator
+                                  LengthValidator, NotBlankValidator
 from freecritters.web.modifiers import FormTokenField, HtmlModifier
 from freecritters.web.exceptions import Error404
 from sqlalchemy import desc, outerjoin
 from sqlalchemy.orm import eagerload
-
-def _check_forum_permissions(group, permission, group_permission):
-    fc.req.check_permission(permission)
-    if group is not None:
-        fc.req.check_group_permission(group, group_permission)
-
-def _has_forum_permissions(group, permission, group_permission):
-    result = fc.req.has_permission(permission)
-    if group is not None:
-        result = result and fc.req.has_group_permission(group, group_permission)
-    return result
 
 def forums(req, group_id=None):
     if group_id is None:
@@ -47,7 +36,7 @@ def forum(req, forum_id):
     forum = Forum.query.get(forum_id)
     if forum is None:
         return None
-    _check_forum_permissions(forum.group, forum.view_permission, forum.view_group_permission)
+    req.check_permission_and_group_permission(forum.group, forum.view_permission, forum.view_group_permission)
     
     threads = forum.threads.order_by(desc(Thread.last_post))
     threads = threads.options(eagerload('user'))
@@ -57,7 +46,8 @@ def forum(req, forum_id):
         group=forum.group,
         forum=forum,
         paginator=paginated,
-        threads=paginated.all())
+        threads=paginated.all(),
+        thread_deleted='thread_deleted' in req.args)
 
 def _get_thread(thread_id):
     thread = Thread.query.options(
@@ -78,12 +68,14 @@ create_post_form = Form(u'post', None,
 
 def thread(req, thread_id):
     thread = _get_thread(thread_id)
-    _check_forum_permissions(thread.forum.group, thread.forum.view_permission,
-                             thread.forum.view_group_permission)
+    req.check_permission_and_group_permission(
+        thread.forum.group,
+        thread.forum.view_permission,
+        thread.forum.view_group_permission)
     
-    if _has_forum_permissions(thread.forum.group,
-                              thread.forum.create_post_permission,
-                              thread.forum.create_post_group_permission):
+    if req.has_permission_and_group_permission(thread.forum.group,
+                                               thread.forum.create_post_permission,
+                                               thread.forum.create_post_group_permission):
         defaults = {}
         try:
             quote_id = int(req.args['quote'])
@@ -114,13 +106,36 @@ def thread(req, thread_id):
         thread=thread,
         paginator=paginated,
         posts=paginated.all(),
-        form=results)
+        form=results,
+        post_deleted='post_deleted' in req.args)
+
+delete_thread_form = Form(u'post', None,
+    FormTokenField(),
+    SubmitButton(id_=u'submitbtn', title=u'Yes, delete it'))
+
+def delete_thread(req, thread_id):
+    thread = _get_thread(thread_id)
+    req.check_named_permission(thread.forum.group, u'moderate')
+    results = delete_thread_form(req)
+    results.action = 'forums.delete_thread', dict(thread_id=thread_id)
+    if results.successful:
+        Session.delete(thread)
+        req.redirect('forums.forum', forum_id=thread.forum.forum_id, thread_deleted=1)
+    else:
+        # Here, kludgey-kludgey! Who's a pretty kludge? You are! You are!
+        fc.group = thread.forum.group
+        return req.render_template('delete_thread.mako',
+            group=thread.forum.group,
+            forum=thread.forum,
+            thread=thread,
+            form=results)
 
 def create_post(req, thread_id):
     thread = _get_thread(thread_id)
-    _check_forum_permissions(thread.forum.group,
-                             thread.forum.create_post_permission,
-                             thread.forum.create_post_group_permission)
+    req.check_permission_and_group_permission(
+        thread.forum.group,
+        thread.forum.create_post_permission,
+        thread.forum.create_post_group_permission)
     
     results = create_post_form(req)
     results.action = 'forums.create_post', dict(thread_id=thread_id)
@@ -138,22 +153,54 @@ def create_post(req, thread_id):
             preview = None
         fc.group = thread.forum.group
         return req.render_template('create_post.mako',
-                                   preview=preview,
-                                   group=thread.forum.group,
-                                   forum=thread.forum,
-                                   thread=thread,
-                                   form=results)
+            preview=preview,
+            group=thread.forum.group,
+            forum=thread.forum,
+            thread=thread,
+            form=results)
 
 create_thread_form = Form(u'post', None,
     FormTokenField(),
     TextField(u'subject', u'Subject',
               size=42,
               max_length=Thread.max_subject_length,
-              modifiers=[LengthValidator(2)]),
+              modifiers=[NotBlankValidator()]),
     TextArea(u'message', u'Message',
-             modifiers=[LengthValidator(2), HtmlModifier()]),
+             modifiers=[NotBlankValidator(), HtmlModifier()]),
     SubmitButton(id_=u'submitbtn', title=u'Create thread'),
-    SubmitButton(id_=u'preview', title=u'Preview'))
+    SubmitButton(u'preview', u'Preview'))
+
+# In theory, this is very similar to delete_thread, and I shouldn't be
+# duplicating code left-and-right. But y'know what? Finding a reasonable
+# interface for the common functionality is more difficult than just
+# duplicating code, and I'm lazy. Deal with it. Or submit a patch.
+delete_post_form = Form(u'post', None,
+    FormTokenField(),
+    SubmitButton(id_=u'submitbtn', title=u'Yes, delete it'))
+
+def delete_post(req, post_id):
+    post = Post.query.options(
+        eagerload('thread'),
+        eagerload('thread.forum'),
+        eagerload('thread.forum.group')
+    ).get(post_id)
+    if post is None:
+        return None
+    req.check_named_permission(post.thread.forum.group, u'moderate')
+    results = delete_post_form(req)
+    results.action = 'forums.delete_post', dict(post_id=post_id)
+    if results.successful:
+        Session.delete(post)
+        req.redirect('forums.thread', thread_id=post.thread.thread_id, post_deleted=1)
+    else:
+        # Mommy, this kludge followed me home! Can I keep him? Pweeze?
+        fc.group = post.thread.forum.group
+        return req.render_template('delete_post.mako',
+            group=post.thread.forum.group,
+            forum=post.thread.forum,
+            thread=post.thread,
+            post=post,
+            form=results)
 
 def create_thread(req, forum_id):
     forum = Forum.query.options(
@@ -161,8 +208,10 @@ def create_thread(req, forum_id):
     ).get(forum_id)
     if forum is None:
         return None
-    _check_forum_permissions(forum.group, forum.create_thread_permission,
-                             forum.create_thread_group_permission)
+    req.check_permission_and_group_permission(
+        forum.group,
+        forum.create_thread_permission,
+        forum.create_thread_group_permission)
     
     results = create_thread_form(req)
     results.action = 'forums.create_thread', dict(forum_id=forum_id)

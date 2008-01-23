@@ -8,6 +8,7 @@ from freecritters.web.form import Form, TextField, IntegerModifier, \
                                   Modifier, ValidationError, LengthValidator
 from freecritters.web.modifiers import UsernameNotTakenValidator
 from freecritters.web.login import add_login_cookies
+from freecritters.web.exceptions import Error403
 import time
 
 register_form = Form(u'post', 'register',

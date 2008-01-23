@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from userhtml import sanitize_html
+from userhtml import sanitize_html as render_html
 from HTMLParser import HTMLParseError
 from xml.sax.saxutils import escape
 import re
@@ -33,9 +33,3 @@ def render_plain_text(text, max_lines=None):
     if open_paragraph:
         result.append(u'</p>')
     return u''.join(result)
-    
-def render_html(data):
-    try:
-        return sanitize_html(data)
-    except HTMLParseError, e:
-        raise ValueError(str(e))

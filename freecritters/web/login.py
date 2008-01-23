@@ -12,7 +12,7 @@ login_form = Form(u'post', 'login',
               modifiers=[UserModifier()]),
     PasswordField(u'password', u'Password',
                   modifiers=[PasswordValidator(u'user', u'subaccount')]),
-    TextField(u'subaccount', u'Subaccount',
+    TextField(u'subaccount', u'Subaccount name',
               modifiers=[SubaccountModifier(u'user')],
               description=u"Leave this blank if you don't know what it is."),
     SubmitButton(title=u'Submit', id_=u'submit'))

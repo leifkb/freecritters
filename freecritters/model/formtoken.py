@@ -1,6 +1,7 @@
 from freecritters.model.tables import form_tokens
 from sqlalchemy import and_
 from datetime import datetime, timedelta
+from freecritters.model.session import Session
 import uuid
 
 class FormToken(object):
@@ -17,13 +18,9 @@ class FormToken(object):
         """
         
         min_creation_time = datetime.utcnow() - timedelta(days=1)
-        if subaccount is None:
-            subaccount_clause = form_tokens.c.subaccount_id==None
-        else:
-            subaccount_clause = form_tokens.c.subaccount_id==subaccount.subaccount_id
         form_token = cls.query.filter(and_(
             form_tokens.c.user_id==user.user_id,
-            subaccount_clause,
+            form_tokens.c.subaccount_id==(subaccount and subaccount.subaccount_id),
             form_tokens.c.creation_time>=min_creation_time
         )).first()
         if form_token is None:
@@ -37,13 +34,9 @@ class FormToken(object):
         """
         # Blah, blah, reuse code instead of copying and pasting, blah blah...
         min_creation_time = datetime.utcnow() - timedelta(days=7)
-        if subaccount is None:
-            subaccount_clause = form_tokens.c.subaccount_id==None
-        else:
-            subaccount_clause = form_tokens.c.subaccount_id==subaccount.subaccount_id
         form_token = cls.query.filter(and_(
             form_tokens.c.user_id==user.user_id,
-            subaccount_clause,
+            form_tokens.c.subaccount_id==(subaccount and subaccount.subaccount_id),
             form_tokens.c.creation_time>=min_creation_time,
             form_tokens.c.token==token
         )).first()

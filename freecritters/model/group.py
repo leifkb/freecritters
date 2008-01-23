@@ -18,8 +18,7 @@ class Group(object):
         self.type = type
         self.change_name(name)
         self.description = description
-        self.home_page = home_page
-        self.rendered_home_page = rendered_home_page
+        self.rendered_home_page = self.home_page = render_plain_text(description)
         self.owner = owner
         self.member_count = 0
         self.created = datetime.utcnow()

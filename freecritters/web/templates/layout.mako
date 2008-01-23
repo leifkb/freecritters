@@ -6,6 +6,13 @@
               href="${fc.url('static', fn='style.css')}">
         <script src="${fc.url('urls.urls_js')}" type="text/javascript"></script>
         <script type="text/javascript">${fc.req.url_routing_js|n}</script>
+        <script type="text/javascript">var form_token = \
+% if fc.req.user is not None:
+"${fc.req.form_token()}"\
+% else:
+null\
+% endif
+;</script>
         <script src="${fc.url('static', fn='MochiKit.js')}" type="text/javascript"></script>
         <!--[if lt IE 7]>
         <script type="text/javascript">IE7_PNG_SUFFIX = "";</script>
@@ -27,10 +34,10 @@
                 % else:
                 <div>Logged in as <a href="${fc.url('profile', username=fc.req.user.unformatted_username)}">${fc.req.user.username}</a>\
                     % if fc.req.subaccount is not None:
- (${fc.subaccount_name})\
+ (${fc.req.subaccount.name})\
                     % endif
 , &curren;${integer(fc.req.user.money)}</div>
-                <div><a href="${fc.url('logout')}">Log out</a>, <a href="${fc.url('settings.edit_profile')}">preferences</a></div>
+                <div><a href="${fc.url('logout')}" class="confirm">Log out</a>, <a href="${fc.url('settings.edit_profile')}">preferences</a></div>
                 % endif
             </div>
 
@@ -39,17 +46,18 @@
         <div id="navs">
             <div class="nav" id="primarynav"><ul>\
 <li><a href="${fc.url('home')}">Home</a></li>\
-<li>\
+<li><a href="${fc.url('mail.inbox')}">\
 <%              has_new_mail = fc.req.user is not None and fc.req.user.has_new_mail %>\
                 % if has_new_mail:
-<strong>\
+<strong class="navnewmail">\
                 % endif
-<a href="${fc.url('mail.inbox')}">Mail</a>\
+Mail\
                 % if has_new_mail:
 </strong>\
                 % endif
-</li>\
+</a></li>\
 <li><a href="${fc.url('pets.pet_list')}">Pets</a></li>\
+<li><a href="${fc.url('forums')}">Forums</a></li>\
 <li><a href="${fc.url('groups')}">Groups</a></li>\
 </ul></div>
             ${self.secondarynav()}
@@ -62,7 +70,6 @@
             % endif
             <div id="content">
                 ${next.body()}
-##                <div class="clearhack">o hai</div>
             </div>
         </div>
     </body>

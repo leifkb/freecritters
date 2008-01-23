@@ -12,6 +12,7 @@ urls = Map([
     Rule('/logout', endpoint='logout'),
     Rule('/users/<username>', endpoint='profile'),
     Rule('/editprofile', endpoint='settings.edit_profile'),
+    Rule('/changepassword', endpoint='settings.change_password'),
     Rule('/subaccounts/', endpoint='settings.subaccount_list'),
     Rule('/subaccounts/create', endpoint='settings.create_subaccount'),
     Rule('/subaccounts/<int:subaccount_id>/edit', endpoint='settings.edit_subaccount'),
@@ -47,7 +48,9 @@ urls = Map([
     Rule('/forums/<int:forum_id>/', endpoint='forums.forum'),
     Rule('/forums/<int:forum_id>/create_thread', endpoint='forums.create_thread'),
     Rule('/forums/threads/<int:thread_id>/', endpoint='forums.thread'),
+    Rule('/forums/threads/<int:thread_id>/delete', endpoint='forums.delete_thread'),
     Rule('/forums/threads/<int:thread_id>/post', endpoint='forums.create_post'),
+    Rule('/forums/posts/<int:post_id>/delete', endpoint='forums.delete_post'),
     Rule('/static/<path:fn>', endpoint='static'),
     Rule('/urls.js', endpoint='urls.urls_js')
 ], charset='utf-8', converters={'color': ColorConverter})

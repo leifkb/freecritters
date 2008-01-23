@@ -6,7 +6,7 @@
 </%def>\
 
 <div id="premailmessagecontainer">
-% if user is not None:
+% if user is not None and user.rendered_pre_mail_message is not None:
 <div class="premailmessage"><h3>${user.username} says:</h3>${user.rendered_pre_mail_message|n}</div>
 % endif
 </div>

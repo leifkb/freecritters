@@ -17,6 +17,8 @@ from itertools import izip
 from sqlalchemy import and_
 from sqlalchemy.orm import eagerload
 
+DEFAULT_COLOR = (255, 0, 0)
+
 def create_pet(req, species_id):
     req.check_permission(u'create_pet')
     species = Species.query.get(species_id)
@@ -54,7 +56,7 @@ def create_pet(req, species_id):
     form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
     form.add_field(SubmitButton(u'preview', u'Preview'))
         
-    defaults = {u'color': (255, 0, 0)}
+    defaults = {u'color': DEFAULT_COLOR}
     
     results = form(req, defaults)
     appearance = results.get(u'appearance', appearance_list[0])
@@ -67,7 +69,7 @@ def create_pet(req, species_id):
         return req.render_template('create_pet_form.mako',
             species=species,
             appearance=appearance,
-            color=results[u'color'],
+            color=results.get(u'color', DEFAULT_COLOR),
             form=results)
         
 def pet_image(req, species_id, appearance_id, color):

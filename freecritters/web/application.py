@@ -178,7 +178,27 @@ class Request(BaseRequest):
     def check_group_permission_rss(self, group, permission):
         if not self.has_group_permission(group, permission):
             raise Error401RSS()
-       
+    
+    def has_permission_and_group_permission(self, group, permission, group_permission):
+        result = self.has_permission(permission)
+        if group is not None:
+            result = result and self.has_group_permission(group, group_permission)
+        return result
+    
+    def check_permission_and_group_permission(self, group, permission, group_permission):
+        if not self.has_permission_and_group_permission(group, permission, group_permission):
+            raise Error403()
+    
+    def has_named_permission(self, group, permission):
+        if group is None:
+            return self.has_permission(permission)
+        else:
+            return self.has_group_permission(group, permission)
+    
+    def check_named_permission(self, group, permission):
+        if not self.has_named_permission(group, permission):
+            raise Error403()
+    
     def form_token(self):
         return self.form_token_object().token
 
