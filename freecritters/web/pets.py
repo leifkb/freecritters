@@ -7,8 +7,7 @@ from freecritters.web.application import Response
 from freecritters.web.form import Form, TextField, SelectMenu, ColorSelector, \
                                   SubmitButton, RegexValidator, HiddenField
 from freecritters.web.modifiers import FormTokenField, \
-                                       PetNameNotTakenValidator, \
-                                       AppearanceModifier
+                                       PetNameNotTakenValidator
 import ImageColor
 from cStringIO import StringIO
 import random
@@ -45,22 +44,25 @@ def create_pet(req, species_id):
                              
     if len(appearance_list) > 1:
         appearance_options = [
-            (appearance.appearance_id, appearance.name)
+            (appearance, appearance.name)
             for appearance in appearance_list
         ]
         form.add_field(SelectMenu(u'appearance', u'Appearance',
-                                  options=appearance_options,
-                                  modifiers=[AppearanceModifier()]))
+                                  options=appearance_options))
         del appearance, appearance_options
     form.add_field(ColorSelector(u'color', u'Color'))
     form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
     form.add_field(SubmitButton(u'preview', u'Preview'))
         
-    defaults = {u'color': DEFAULT_COLOR}
+    defaults = {
+        u'color': DEFAULT_COLOR,
+        u'appearance': appearance_list[0]
+    }
     
     results = form(req, defaults)
-    appearance = results.get(u'appearance', appearance_list[0])
-        
+    
+    appearance = results.get(u'appearance', appearance_list[0]) # Field might not exist
+    
     if results.successful and u'preview' not in results:
         pet = Pet(results[u'pet_name'], req.user, species, appearance, results[u'color'])
         Session.save(pet)
@@ -69,7 +71,7 @@ def create_pet(req, species_id):
         return req.render_template('create_pet_form.mako',
             species=species,
             appearance=appearance,
-            color=results.get(u'color', DEFAULT_COLOR),
+            color=results[u'color'],
             form=results)
         
 def pet_image(req, species_id, appearance_id, color):

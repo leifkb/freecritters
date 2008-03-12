@@ -142,10 +142,6 @@ def edit_subaccount(req, subaccount_id):
         updated=updated,
         subaccount=subaccount)
     
-subaccount_delete_form = Form(u'post', None,
-    FormTokenField(),
-    SubmitButton(title=u'Yes', id_=u'submit'))
-    
 def delete_subaccount(req, subaccount_id):
     req.check_permission(None)
     if req.subaccount is not None:
@@ -157,16 +153,10 @@ def delete_subaccount(req, subaccount_id):
     if subaccount.user != req.user:
         raise Error403()
         
-    form = subaccount_delete_form(req)
-    form.action = 'settings.delete_subaccount', dict(subaccount_id=subaccount_id)
-    
-    if form.successful:
-        Session.delete(subaccount)
-        req.redirect('settings.subaccount_list', deleted=1)
-    else:
-        return req.render_template('delete_subaccount.mako',
-            form=form,
-            subaccount=subaccount)
+    confirm(u'delete that subaccount')
+
+    Session.delete(subaccount)
+    req.redirect('settings.subaccount_list', deleted=1)
 
 subaccount_password_change_form = Form(u'post', None,
     FormTokenField(),
