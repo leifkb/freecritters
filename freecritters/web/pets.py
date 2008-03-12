@@ -101,8 +101,7 @@ def pet_list(req):
         eagerload('species_appearance.appearance')
     ).order_by(Pet.unformatted_name).all()
     return req.render_template('pet_list.mako',
-        pets=pets,
-        created='created' in req.args
+        pets=pets
     )
 
 def color_wheel(n):

@@ -1,4 +1,5 @@
 <%inherit file="mail_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%namespace file="form.mako" import="render_form"/>
 <%! from simplejson import dumps %>\
 <%def name="title()">Mail: ${conversation.subject}</%def>\
@@ -11,9 +12,7 @@ var expanded = ${dumps(expanded)};
 var collapsed = ${dumps(collapsed)};
 </script>
 
-% if reply_successful:
-<p class="formsuccessful">Replied sucessfully.</p>
-% endif
+${formsuccess(replied=u'Replied.')}
 
 % if participation.system:
 <p>This is a system-generated message.</p>

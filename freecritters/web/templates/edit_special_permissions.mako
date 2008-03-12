@@ -1,15 +1,12 @@
 <%inherit file="group_special_permissions_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">Editing group special permissions</%def>\
 
-% if created:
-<p class="formsuccessful">Permission created.</p>
-% endif
-% if edited:
-<p class="formsuccessful">Permission edited.</p>
-% endif
-% if deleted:
-<p class="formsuccessful">Permission deleted.</p>
-% endif
+${formsuccess(
+    created=u'Permission created.',
+    edited=u'Permission edited.',
+    deleted=u'Permission deleted.'
+)}
 
 <p>Special group permissions are permissions which you can create, specific to this group.
 Forums can be set to require them for various actions.</p>

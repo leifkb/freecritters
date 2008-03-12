@@ -1,13 +1,12 @@
 <%inherit file="group_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%namespace file="paginator.mako" import="render_paginator_in_box"/>\
 <%def name="title()">Members of ${group.name}</%def>
 
-% if removed:
-<p class="formsuccessful">Member removed successfully.</p>
-% endif
-% if owner_changed:
-<p class="formsuccessful">Owner changed successfully.</p>
-% endif
+${formsuccess(
+    removed=u'Member removed.',
+    owner_changed=u'Owner changed.'
+)}
 
 <% can_edit = fc.req.has_group_permission(group, u'edit_members') %>\
 <table class="normal" id="groupmembers">

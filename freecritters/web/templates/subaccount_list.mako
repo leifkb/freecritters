@@ -1,15 +1,13 @@
 <%inherit file="settings_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">Subaccounts</%def>\
 
-% if deleted:
-<p class="formsuccessful">Subaccount deleted.</p>
-% endif
-% if password_changed:
-<p class="formsuccessful">Subaccount password changed.</p>
-% endif
-% if created:
-<p class="formsuccessful">Subaccount created</p>
-% endif
+${formsuccess(
+    deleted=u'Subaccount deleted.',
+    password_changed=u'Subaccount password changed.',
+    created=u'Subaccount created.',
+    edited=u'Subaccount edited.'
+)}
 
 <p>Subaccounts allow you to create multiple passwords for logging into your
 account with limited capabilities. This is useful if, for instance, you want

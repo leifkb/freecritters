@@ -180,7 +180,6 @@ def conversation(req, conversation_id):
         conversation=conversation,
         messages=messages,
         reply_form=reply_form_results,
-        reply_successful='reply_successful' in req.args,
         delete_form=delete_form_results,
         can_reply=req.has_permission(u'send_mail'),
         expanded=expanded,

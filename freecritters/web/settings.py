@@ -63,7 +63,6 @@ def change_password(req):
         req.redirect('settings.change_password', changed=1)
     else:
         return req.render_template('change_password.mako',
-            changed='changed' in req.args,
             form=results)
 
 def permission_options(user):
@@ -78,10 +77,7 @@ def subaccount_list(req):
         raise Error403()
     subaccounts = req.user.subaccounts.order_by(Subaccount.name).all()
     return req.render_template('subaccount_list.mako',
-        subaccounts=subaccounts,
-        deleted='deleted' in req.args,
-        password_changed='password_changed' in req.args,
-        created='created' in req.args)
+        subaccounts=subaccounts)
 
 def create_subaccount(req):
     req.check_permission(None)
@@ -105,7 +101,7 @@ def create_subaccount(req):
     if results.successful:
         subaccount = Subaccount(req.user, results[u'name'], results[u'password'])
         Session.save(subaccount)
-        subaccount.permissions = resuts[u'permissions']
+        subaccount.permissions = results[u'permissions']
         req.redirect('settings.subaccount_list', created=1)
     else:
         return req.render_template('create_subaccount.mako',
@@ -134,12 +130,10 @@ def edit_subaccount(req, subaccount_id):
     results = form(req, defaults)
     if results.successful:
         subaccount.permissions = results[u'permissions']
-        updated = True
-    else:
-        updated = False
+        req.redirect('settings.subaccount_list', edited=1)
+        
     return req.render_template('edit_subaccount.mako',
         form=results,
-        updated=updated,
         subaccount=subaccount)
     
 def delete_subaccount(req, subaccount_id):

@@ -46,8 +46,7 @@ def forum(req, forum_id):
         group=forum.group,
         forum=forum,
         paginator=paginated,
-        threads=paginated.all(),
-        thread_deleted='thread_deleted' in req.args)
+        threads=paginated.all())
 
 def _get_thread(thread_id):
     thread = Thread.query.options(
@@ -106,8 +105,7 @@ def thread(req, thread_id):
         thread=thread,
         paginator=paginated,
         posts=paginated.all(),
-        form=results,
-        post_deleted='post_deleted' in req.args)
+        form=results)
 
 def delete_thread(req, thread_id):
     thread = _get_thread(thread_id)

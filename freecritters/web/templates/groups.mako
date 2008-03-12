@@ -1,12 +1,11 @@
 <%inherit file="groups_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">Groups</%def>\
 
-% if left:
-<p class="formsuccessful">Left group.</p>
-% endif
-% if deleted:
-<p class="formsuccessful">Deleted group.</p>
-% endif
+${formsuccess(
+    left=u'Left group.',
+    deleted=u'Deleted group.'
+)}
 
 % if groups:
 <table class="normal" id="yourgroups">

@@ -1,12 +1,11 @@
 <%inherit file="forum_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%namespace file="paginator.mako" import="render_paginator_in_box"/>\
 <%namespace file="form.mako" import="render_form"/>\
 <%! from simplejson import dumps %>\
 <%def name="title()">Thread: ${thread.subject}</%def>\
 
-% if post_deleted:
-<p class="formsuccessful">Post deleted.</p>
-% endif
+${formsuccess(post_deleted=u'Post deleted.')}
 
 <% can_delete = fc.req.has_named_permission(group, u'moderate') %>\
 

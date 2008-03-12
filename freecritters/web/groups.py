@@ -74,9 +74,7 @@ def groups(req):
     ]
     
     return req.render_template('groups.mako',
-        groups=groups,
-        left='left' in req.args,
-        deleted='deleted' in req.args)
+        groups=groups)
 
 orders = {
     u'members': desc(Group.member_count),
@@ -178,8 +176,6 @@ def group_members(req, group_id):
     paginated = group_member_paginator(req, members)
     
     return req.render_template('group_members.mako',
-        removed='removed' in req.args,
-        owner_changed='owner_changed' in req.args,
         group=group,
         paginator=paginated,
         members=paginated.all())
@@ -392,11 +388,7 @@ def edit_roles(req, group_id):
     
     return req.render_template('edit_group_roles.mako',
         group=group,
-        roles=roles,
-        created='created' in req.args,
-        deleted='deleted' in req.args,
-        edited='edited' in req.args,
-        made_default='made_default' in req.args)
+        roles=roles)
 
 def make_role_form(group, btntext):
     # Unnecessary personal trivia: I'm coding this from my roof. It's sunny,
@@ -502,10 +494,7 @@ def edit_special_permissions(req, group_id):
     
     return req.render_template('edit_special_permissions.mako',
         group=group,
-        permissions=permissions,
-        created='created' in req.args,
-        edited='edited' in req.args,
-        deleted='deleted' in req.args)
+        permissions=permissions)
 
 special_permission_form = Form(u'post', None, # Holy crap! I'm reusing something?!
     FormTokenField(),

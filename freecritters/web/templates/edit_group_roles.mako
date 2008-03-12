@@ -1,18 +1,13 @@
 <%inherit file="group_roles_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">Editing group roles</%def>\
 
-% if created:
-<p class="formsuccessful">Role created.</p>
-% endif
-% if edited:
-<p class="formsuccessful">Role edited.</p>
-% endif
-% if deleted:
-<p class="formsuccessful">Role deleted.</p>
-% endif
-% if made_default:
-<p class="formsuccessful">Role made default.</p>
-% endif
+${formsuccess(
+    created=u'Role created.',
+    edited=u'Role edited.',
+    deleted=u'Role deleted.',
+    made_default=u'Role made default.'
+)}
 
 <p>Members in a group have a <strong>role</strong>, which determines what their job in the group is, and what they are capable of doing. You can alter the permissions assigned to existing roles here, or create new roles. You can also make a role the default which is assigned to newly-joining members.</p>
 

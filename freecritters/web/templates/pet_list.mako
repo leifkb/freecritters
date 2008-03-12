@@ -1,9 +1,8 @@
 <%inherit file="pet_layout.mako"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">Pets</%def>\
 
-% if created:
-<p class="formsuccessful">Pet created.</p>
-% endif
+${formsuccess(created=u'Pet created.')}
 
 % if not pets:
 <p>You don't have any pets.</p>
