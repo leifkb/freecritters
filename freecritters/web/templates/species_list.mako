@@ -4,7 +4,7 @@
 <p>Please choose a species:</p>
 <table class="petlist">
     % for i, (species, appearance, color) in enumerate(items):
-<%  link = fc.url('pets.create_pet', species_id=species.species_id) %>\
+<%  link = fc.url('pets.create_pet', species_id=species.species_id, selected_appearance_id=appearance.appearance_id, selected_color=color) %>\
 <%  image = fc.url('pets.pet_image', species_id=species.species_id, appearance_id=appearance.appearance_id, color=color) %>\
     <tr\
 % if i == len(items) - 1:

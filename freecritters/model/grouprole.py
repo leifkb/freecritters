@@ -11,6 +11,7 @@ class GroupRole(object):
     def has_permission(self, permission):
         if isinstance(permission, basestring):
             permission = StandardGroupPermission.find_label(permission)
+        
         if isinstance(permission, StandardGroupPermission):
             return permission in self.standard_permissions
         elif isinstance(permission, SpecialGroupPermission):

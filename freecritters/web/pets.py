@@ -18,7 +18,7 @@ from sqlalchemy.orm import eagerload
 
 DEFAULT_COLOR = (255, 0, 0)
 
-def create_pet(req, species_id):
+def create_pet(req, species_id, selected_appearance_id=None, selected_color=None):
     req.check_permission(u'create_pet')
     species = Species.query.get(species_id)
     if species is None or not species.creatable:
@@ -30,7 +30,13 @@ def create_pet(req, species_id):
     )).order_by(appearances.c.name).all()
     if not appearance_list:
         return None
-        
+    
+    selected_appearance = Appearance.query.maybe_get(selected_appearance_id)
+    if selected_appearance is None or selected_appearance not in appearance_list:
+        selected_appearance = appearance_list[0]
+    if selected_color is None:
+        selected_color = DEFAULT_COLOR
+    
     form = Form(u'post', ('pets.create_pet', dict(species_id=species.species_id)),
         FormTokenField(),
         TextField(u'pet_name', u'Name',
@@ -55,13 +61,13 @@ def create_pet(req, species_id):
     form.add_field(SubmitButton(u'preview', u'Preview'))
         
     defaults = {
-        u'color': DEFAULT_COLOR,
-        u'appearance': appearance_list[0]
+        u'color': selected_color,
+        u'appearance': selected_appearance
     }
     
     results = form(req, defaults)
     
-    appearance = results.get(u'appearance', appearance_list[0]) # Field might not exist
+    appearance = results.get(u'appearance', selected_appearance) # Field might not exist
     
     if results.successful and u'preview' not in results:
         pet = Pet(results[u'pet_name'], req.user, species, appearance, results[u'color'])
