@@ -1,5 +1,5 @@
 from sqlalchemy import and_
-from sqlalchemy.orm import MapperExtension, EXT_CONTINUE, class_mapper
+from sqlalchemy.orm import MapperExtension, EXT_CONTINUE, class_mapper, Query
 from struct import pack
 from random import randint
 import sha
@@ -74,3 +74,22 @@ class CountKeeperExtension(MapperExtension):
     def before_delete(self, mapper, connection, instance):
         self._add(connection, instance, -1)
         return EXT_CONTINUE
+
+def maybe_get(query, identity):
+    if identity is None:
+        return None
+    else:
+        return query.get(identity)
+
+Query.maybe_get = maybe_get
+
+def set_dynamic_relation(relation, items):
+    current = set(relation)
+    items = set(items)
+    removed = current - items
+    added = items - current
+    for item in removed:
+        print '\n\n\n\n\n\n', relation.all(), item, item in relation, item in relation.all()
+        relation.remove(item)
+    for item in added:
+        relation.append(item)

@@ -109,26 +109,14 @@ def thread(req, thread_id):
         form=results,
         post_deleted='post_deleted' in req.args)
 
-delete_thread_form = Form(u'post', None,
-    FormTokenField(),
-    SubmitButton(id_=u'submitbtn', title=u'Yes, delete it'))
-
 def delete_thread(req, thread_id):
     thread = _get_thread(thread_id)
     req.check_named_permission(thread.forum.group, u'moderate')
-    results = delete_thread_form(req)
-    results.action = 'forums.delete_thread', dict(thread_id=thread_id)
-    if results.successful:
-        Session.delete(thread)
-        req.redirect('forums.forum', forum_id=thread.forum.forum_id, thread_deleted=1)
-    else:
-        # Here, kludgey-kludgey! Who's a pretty kludge? You are! You are!
-        fc.group = thread.forum.group
-        return req.render_template('delete_thread.mako',
-            group=thread.forum.group,
-            forum=thread.forum,
-            thread=thread,
-            form=results)
+
+    confirm(u'delete this thread')
+    
+    Session.delete(thread)
+    req.redirect('forums.forum', forum_id=thread.forum.forum_id, thread_deleted=1)
 
 def create_post(req, thread_id):
     thread = _get_thread(thread_id)
@@ -170,13 +158,6 @@ create_thread_form = Form(u'post', None,
     SubmitButton(id_=u'submitbtn', title=u'Create thread'),
     SubmitButton(u'preview', u'Preview'))
 
-# In theory, this is very similar to delete_thread, and I shouldn't be
-# duplicating code left-and-right. But y'know what? Finding a reasonable
-# interface for the common functionality is more difficult than just
-# duplicating code, and I'm lazy. Deal with it. Or submit a patch.
-delete_post_form = Form(u'post', None,
-    FormTokenField(),
-    SubmitButton(id_=u'submitbtn', title=u'Yes, delete it'))
 
 def delete_post(req, post_id):
     post = Post.query.options(
@@ -187,20 +168,11 @@ def delete_post(req, post_id):
     if post is None:
         return None
     req.check_named_permission(post.thread.forum.group, u'moderate')
-    results = delete_post_form(req)
-    results.action = 'forums.delete_post', dict(post_id=post_id)
-    if results.successful:
-        Session.delete(post)
-        req.redirect('forums.thread', thread_id=post.thread.thread_id, post_deleted=1)
-    else:
-        # Mommy, this kludge followed me home! Can I keep him? Pweeze?
-        fc.group = post.thread.forum.group
-        return req.render_template('delete_post.mako',
-            group=post.thread.forum.group,
-            forum=post.thread.forum,
-            thread=post.thread,
-            post=post,
-            form=results)
+    
+    confirm(u'delete this post')
+    
+    Session.delete(post)
+    req.redirect('forums.thread', thread_id=post.thread.thread_id, post_deleted=1)
 
 def create_thread(req, forum_id):
     forum = Forum.query.options(

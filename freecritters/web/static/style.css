@@ -497,3 +497,13 @@ img {
 .navnewmail {
     color: red;
 }
+strong.very {
+    color: red;
+    font-size: 1.25em;
+}
+.checkboxes {
+    margin: 0;
+}
+.checkboxes th {
+    text-align: left;
+}

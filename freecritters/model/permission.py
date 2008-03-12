@@ -17,13 +17,4 @@ class Permission(object):
         optionally, subaccount.
         """
         
-        result = bool(user.role.permissions.filter_by(
-            permission_id=self.permission_id
-        ).count())
-        
-        if result and subaccount is not None:
-            result = bool(subaccount.permissions.filter_by(
-                permission_id=self.permission_id
-            ).count())
-        
-        return result
+        return self in user.role.permissions and (subaccount is None or self in subaccount.permissions)

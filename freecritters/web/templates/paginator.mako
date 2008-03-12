@@ -18,7 +18,8 @@ Page <input type="text" name="${paginator.paginator.argument}" size="${len(str(p
 </form>
 </%def>
 
-<%def name="render_paginator_in_box(paginator, left_aligned=False)">
+<%def name="render_paginator_in_box(paginator, left_aligned=False, always_show=False)">
+% if always_show or paginator.page_count > 1:
 <div class="paginatorcontainer\
 % if left_aligned:
 left\
@@ -26,4 +27,5 @@ left\
 ">
 ${render_paginator(paginator)}
 </div>
+% endif
 </%def>

@@ -7,6 +7,8 @@ features and without a dependency on Pocoo.
 """
 
 import ImageColor
+from sqlalchemy.orm import object_mapper
+from sqlalchemy.exceptions import InvalidRequestError
 
 class ValidationError(Exception):
     """Raised by Modifiers when a value fails validation. Should contain a
@@ -320,6 +322,27 @@ class TextArea(FormField):
         self.rows = rows
         self.cols = cols
 
+def serialize_value(value):
+    if value is None:
+        return u''
+    else:
+        try:
+            mapper = object_mapper(value)
+        except InvalidRequestError:
+            return unicode(value)
+        primary = mapper.primary_key_from_instance(value)
+        return mapper.class_.__name__ + u','.join(unicode(x) for x in primary)
+
+def _serialize_values(values):
+    result = {}
+    for value in values:
+        serialized_value = serialize_value(value)
+        if serialized_value in result and result[serialized_value] != value:
+            raise ValueError("Duplicate serialized value: %r." % serialized_value)
+        else:
+            result[serialized_value] = value
+    return result
+
 class SelectMenu(FormField):
     """Select menus (<select>...</select>)."""
     
@@ -327,18 +350,54 @@ class SelectMenu(FormField):
                  id_=None, modifiers=None, must_be_present=True):
         super(SelectMenu, self).__init__(name, title, description, id_,
                                          modifiers, must_be_present)
+        if options is None:
+            options = []
         self.options = options
+        self._option_map = _serialize_values(value for value, caption in options)
     
     def value_from_raw(self, values, form):
         value = super(SelectMenu, self).value_from_raw(values, form)
-        for option_value, option_caption in self.options:
-            if option_value == value:
-                return value
-        else:
+        try:
+            return self._option_map[value]
+        except KeyError:
             # If the user gives a non-existent value, we silently act like
             # the field wasn't filled in at all. Is this the right solution?
             raise FieldNotFilled()
 
+class CheckBoxes(FormField):
+    """Multiple checkboxes in one field. Similar to a SelectMenu, but with
+    multiple (or zero) selections allowed instead of precisely one.
+    """
+    
+    def __init__(self, name, title=u'', description=u'', options=None,
+                 id_=None, modifiers=None, must_be_present=True):
+        super(CheckBoxes, self).__init__(name, title, description, id_,
+                                         modifiers, must_be_present)
+        if options is None:
+            options = []
+        option_values = []
+        for i, option in enumerate(options):
+            if len(option) == 2:
+                option = option + (None,)
+                options[i] = option
+            elif len(option) != 3:
+                raise ValueError('Options must be tuples of length 2 or 3. %r' % option)
+            option_values.append(option[0])
+        self.options = options
+        self._option_map = _serialize_values(option_values)
+        
+    def value_from_raw(self, values, form):
+        if not form.reliable_field_filled:
+            raise FieldNotFilled()
+        result = []
+        for serialized_value in values:
+            try:
+                value = self._option_map[serialized_value]
+            except KeyError:
+                continue
+            result.append(value)
+        return result
+        
 class HiddenField(FormField):
     """Hidden fields (<input type="hidden">)."""
     
@@ -447,11 +506,12 @@ class FieldResults(object):
             self.modified_value = modified_value
         self.error = error
 
+
 class FormResults(object):
     def __init__(self, req, form, form_defaults):
         self.req = req
         self.form = form
-        self.action = form.action
+        self.action = form.action or (req.endpoint, req.routing_args)
         self.has_errors = False
         self.filled = True
         self._field_results = []

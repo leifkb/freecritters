@@ -41,7 +41,7 @@ mapper(User, users, properties={
 
 mapper(Subaccount, subaccounts, properties={
     'user': relation(User, backref=backref('subaccounts', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
-    'permissions': dynamic_loader(Permission, secondary=subaccount_permissions, backref=backref('subaccounts', lazy='dynamic'))
+    'permissions': relation(Permission, secondary=subaccount_permissions, backref=backref('subaccounts'))
 })
 
 mapper(Login, logins, properties={
@@ -70,7 +70,7 @@ mapper(MailMessage, mail_messages, properties={
 mapper(Permission, permissions)
 
 mapper(Role, roles, properties={
-    'permissions': dynamic_loader(Permission, secondary=role_permissions, backref=backref('roles', lazy='dynamic'))
+    'permissions': relation(Permission, secondary=role_permissions, backref=backref('roles'))
 })
 
 mapper(Picture, pictures)
@@ -100,12 +100,12 @@ mapper(Group, groups, properties={
 })
 
 mapper(StandardGroupPermission, standard_group_permissions, properties={
-    'roles': relation(GroupRole, secondary=group_role_standard_permissions, backref=backref('standard_permissions', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+    'roles': relation(GroupRole, secondary=group_role_standard_permissions, backref=backref('standard_permissions', passive_deletes=True), lazy='dynamic')
 })
 
 mapper(SpecialGroupPermission, special_group_permissions, properties={
     'group': relation(Group, backref=backref('special_permissions', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
-    'roles': relation(GroupRole, secondary=group_role_special_permissions, backref=backref('special_permissions', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+    'roles': relation(GroupRole, secondary=group_role_special_permissions, backref=backref('special_permissions', passive_deletes=True), lazy='dynamic')
 })
 
 mapper(GroupRole, group_roles, properties={
@@ -120,12 +120,12 @@ mapper(GroupMember, group_members, properties={
 
 mapper(Forum, forums, properties={
     'group': relation(Group, backref=backref('forums', lazy='dynamic', cascade='all', passive_deletes=True)),
-    'view_permission': relation(Permission, primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
-    'view_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
-    'create_thread_permission': relation(Permission, primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
-    'create_thread_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
-    'create_post_permission': relation(Permission, primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, lazy='dynamic', cascade='all', passive_deletes=True)),
-    'create_post_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', cascade='all', passive_deletes=True))
+    'view_permission': relation(Permission, primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),
+    'view_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True)),
+    'create_thread_permission': relation(Permission, primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),
+    'create_thread_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True)),
+    'create_post_permission': relation(Permission, primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),
+    'create_post_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True))
 }, extension=FieldCopierExtension(forum_id='order_num'))
 
 mapper(Thread, threads, properties={

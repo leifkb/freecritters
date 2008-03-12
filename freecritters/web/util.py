@@ -6,6 +6,10 @@ import simplejson
 from werkzeug.utils import get_current_url
 from urlparse import urljoin
 from datetime import datetime
+from freecritters.web.globals import fc
+from freecritters.web.form import Form, SubmitButton
+from freecritters.web.modifiers import FormTokenField
+from freecritters.web.exceptions import EarlyResponse
 import re
 
 def returns_json(fun):
@@ -88,3 +92,14 @@ class LazyProperty(object):
     
     def __set__(self, obj, value):
         setattr(obj, self.attr, value)
+
+def confirm(action=u'do that'):
+    form = Form(u'post', None,
+        FormTokenField(),
+        SubmitButton(id_=u'submitbtn', title=u'Yes, %s' % action))
+    results = form(fc.req)
+    if not results.successful:
+        raise EarlyResponse(
+            fc.req.render_template('confirmation.mako',
+                form=results,
+                action=action))

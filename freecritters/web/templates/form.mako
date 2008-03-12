@@ -1,3 +1,4 @@
+<%! from freecritters.web.form import serialize_value %>\
 <%def name="render_form_field(field_results)">\
 <% field = field_results.field %>\
 <% full_id = field_results.form_results.form.id_prefix + field.id_ %>\
@@ -8,7 +9,9 @@
 % else:
 "text"\
 % endif
+% if field.name is not None:
  name="${field.name}"\
+% endif
 % if field.type_name == "ColorSelector":
  class="color"\
 % endif
@@ -24,21 +27,32 @@
 % endif
 >\
 % elif field.type_name == "CheckBox":
-<input type="checkbox" name="${field.name}"\
+<input type="checkbox"\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
 % if field_results.has_value and field_results.value:
  checked="checked"\
 % endif
  id="${full_id}" value="${field.value}">\
 % elif field.type_name == 'TextArea':
-<textarea name="${field.name}" id="${full_id}" rows="${field.rows}" cols="${field.cols}">
+<textarea\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
+ id="${full_id}" rows="${field.rows}" cols="${field.cols}">
 % if field_results.has_value:
 ${field_results.value}\
 % endif
 </textarea>\
 % elif field.type_name == 'SelectMenu':
-<select name="${field.name}" id="${full_id}">
+<select\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
+ id="${full_id}">
 % for value, caption in field.options:
-<option value="${value}"\
+<option value="${serialize_value(value)}"\
 % if field_results.has_value and value == field_results.value:
  selected="selected"\
  % endif
@@ -46,13 +60,48 @@ ${field_results.value}\
 % endfor
 </select>\
 % elif field.type_name == 'HiddenField':
-<input type="hidden" name="${field.name}" id="${full_id}"\
+<input type="hidden"\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
+ id="${full_id}"\
 % if field_results.has_value:
  value="${field_results.value}"\
 % endif
 >\
 % elif field.type_name == 'SubmitButton':
-<input type="submit" name="${field.name}" id="${full_id}" value="${field.title}">\
+<input type="submit"\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
+ id="${full_id}" value="${field.title}">\
+% elif field.type_name == 'CheckBoxes':
+% if field.options:
+<table class="checkboxes" id="${full_id}">
+    % for i, (this_value, caption, description) in enumerate(field.options):
+<% serialized_value = serialize_value(this_value) %>\
+<% this_id = u"%sbox%s" % (full_id, i) %>\
+    <tr>
+        <td><input type="checkbox"\
+% if field.name is not None:
+ name="${field.name}"\
+% endif
+ id="${this_id}"\
+ value="${serialized_value}"\
+% if field_results.has_value and this_value in field_results.value:
+ checked="checked"\
+% endif
+></td>
+        <th><label for="${this_id}">${caption}</label></th>
+    </tr>
+    % if description:
+    <tr>
+        <td></td><td>${description}</td>
+    </tr>
+    % endif
+    % endfor
+</table>
+% endif
 % endif
 </%def>
 

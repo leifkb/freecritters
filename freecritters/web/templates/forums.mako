@@ -17,11 +17,12 @@ Forums</%def>\
     </thead>
     <tbody>
         % for forum in forums:
-        ##% if 
+        % if fc.req.has_permission_and_group_permission(forum.group, forum.view_permission, forum.view_group_permission):
         <tr>
             <td class="forumnamecol dedicatedtolink"><a href="${fc.url('forums.forum', forum_id=forum.forum_id)}">${forum.name}</a></td>
             <td class="forumthreadcountcol">${forum.thread_count}</td>
         </tr>
+        % endif
         % endfor
     </tbody>
 </table>

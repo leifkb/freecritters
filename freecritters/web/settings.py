@@ -3,12 +3,14 @@
 from freecritters.web.form import Form, HiddenField, TextArea, SelectMenu, \
                                   SubmitButton, LengthValidator, TextField, \
                                   CheckBox, PasswordField, SameAsValidator, \
-                                  BlankToNoneModifier
+                                  BlankToNoneModifier, CheckBoxes
 from freecritters.web.modifiers import FormTokenField, FormTokenValidator, HtmlModifier, \
                                        SubaccountNameNotTakenValidator, \
                                        CurrentPasswordValidator
 from freecritters.model import User, Subaccount, Permission, Session
+from freecritters.model.util import set_dynamic_relation
 from freecritters.web.exceptions import Error403
+from operator import attrgetter
 
 edit_profile_form = Form(u'post', 'settings.edit_profile',
     FormTokenField(),
@@ -64,24 +66,12 @@ def change_password(req):
             changed='changed' in req.args,
             form=results)
 
-def add_subaccount_permission_fields(form, user):
-    for permission in user.role.permissions:
-        form.add_field(CheckBox(
-            u'perm' + unicode(permission.permission_id),
-            permission.title,
-            permission.description
-        ))
+def permission_options(user):
+    result = []
+    for permission in sorted(user.role.permissions, key=attrgetter('title')):
+        result.append((permission, permission.title, permission.description))
+    return result
         
-def permissions_from_results(results):
-    for key in results:
-        if key.startswith(u'perm'):
-            try:
-                perm_id = int(key[4:])
-            except ValueError:
-                continue
-            if results[key]:
-                yield Permission.query.get(perm_id)
-    
 def subaccount_list(req):
     req.check_permission(None)
     if req.subaccount is not None:
@@ -107,17 +97,15 @@ def create_subaccount(req):
                       modifiers=[LengthValidator(3)]),
         PasswordField(u'password2', u'Re-enter Password',
                       modifiers=[SameAsValidator(u'password')]),
+        CheckBoxes(u'permissions', u'Permissions', options=permission_options(req.user)),
+        SubmitButton(title=u'Submit', id_=u'submit'),
         reliable_field=u'form_token')
-    add_subaccount_permission_fields(form, req.user)
-    form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
     
-    open('/tmp/foo', 'w').write(repr(req.environ))
     results = form(req)
     if results.successful:
         subaccount = Subaccount(req.user, results[u'name'], results[u'password'])
         Session.save(subaccount)
-        for permission in permissions_from_results(results):
-            subaccount.permissions.append(permission)
+        subaccount.permissions = resuts[u'permissions']
         req.redirect('settings.subaccount_list', created=1)
     else:
         return req.render_template('create_subaccount.mako',
@@ -136,24 +124,16 @@ def edit_subaccount(req, subaccount_id):
         
     form = Form(u'post', ('settings.edit_subaccount', dict(subaccount_id=subaccount_id)),
         FormTokenField(),
+        CheckBoxes(u'permissions', u'Permissions', options=permission_options(req.user)),
+        SubmitButton(id_=u'submitbtn', title=u'Submit'),
         reliable_field=u'form_token')
-    add_subaccount_permission_fields(form, req.user)
-    form.add_field(SubmitButton(title=u'Submit', id_=u'submit'))
-
-    defaults = {}
-    for permission in subaccount.permissions:
-        defaults[u'perm%s' % permission.permission_id] = True
+    
+    
+    defaults = {u'permissions': list(subaccount.permissions)}
     
     results = form(req, defaults)
     if results.successful:
-        current_perms = set(subaccount.permissions)
-        selected_perms = set(permissions_from_results(results))
-        deleted_perms = current_perms - selected_perms
-        added_perms = selected_perms - current_perms
-        for deleted_perm in deleted_perms:
-            subaccount.permissions.remove(deleted_perm)
-        for added_perm in added_perms:
-            subaccount.permissions.append(added_perm)
+        subaccount.permissions = results[u'permissions']
         updated = True
     else:
         updated = False

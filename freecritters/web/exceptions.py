@@ -14,3 +14,8 @@ class Error403(Exception):
 
 class Error404(Exception):
     pass
+
+class EarlyResponse(Exception):
+    def __init__(self, response):
+        self.response = response
+        Exception.__init__(self, response)

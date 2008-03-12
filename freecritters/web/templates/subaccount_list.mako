@@ -17,9 +17,24 @@ to let a friend take care of your pets while you're away, but you don't want
 them to be able to read your mail or anything else.</p>
 
 % if subaccounts:
-<ul>
+<table class="normal">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Options</th>
+        </tr>
+    </thead>
+    <tbody>
     % for subaccount in subaccounts:
-    <li>${subaccount.name} <a href="${fc.url('settings.edit_subaccount', subaccount_id=subaccount.subaccount_id)}">(edit)</a> <a href="${fc.url('settings.change_subaccount_password', subaccount_id=subaccount.subaccount_id)}">(change password)</a> <a href="${fc.url('settings.delete_subaccount', subaccount_id=subaccount.subaccount_id)}" class="confirm">(delete)</a></li>
+        <tr>
+            <td>${subaccount.name}</td>
+            <td>
+                <a href="${fc.url('settings.edit_subaccount', subaccount_id=subaccount.subaccount_id)}">(edit)</a>
+                <a href="${fc.url('settings.change_subaccount_password', subaccount_id=subaccount.subaccount_id)}">(change password)</a>
+                <a href="${fc.url('settings.delete_subaccount', subaccount_id=subaccount.subaccount_id)}" class="confirm">(delete)</a>
+            </td>
+        </tr>
     % endfor
-</ul>
+    </tbody>
+</table>
 % endif

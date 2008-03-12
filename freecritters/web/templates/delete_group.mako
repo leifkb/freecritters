@@ -4,6 +4,6 @@
 
 <p>You are deleting your group, ${group.name}. If you proceed, the entire group &ndash; from its forums to its member list &ndash; will be lost.</p>
 
-<p><strong>This action can not be undone.</strong></p>
+<p><strong class="very">This action can not be undone.</strong></p>
 
 ${render_form(form)}

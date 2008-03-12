@@ -32,7 +32,7 @@
 <% conversation = participation.conversation %>
 <tr\
 % if participation.is_new:
- class="newmail"
+ class="newmail"\
 % endif 
 >
 % if can_delete:

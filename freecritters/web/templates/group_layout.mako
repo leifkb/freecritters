@@ -13,6 +13,12 @@
         % if fc.req.has_group_permission(group, u'edit_forums'):
         <li><a href="${fc.url('groups.create_forum', group_id=group.group_id)}">Add forum</a></li>
         % endif
+        % if fc.req.has_group_permission(group, u'edit_roles'):
+        <li><a href="${fc.url('groups.edit_roles', group_id=group.group_id)}">Edit roles</a></li>
+        % endif
+        % if fc.req.has_group_permission(group, u'edit_special_permissions'):
+        <li><a href="${fc.url('groups.edit_special_permissions', group_id=group.group_id)}">Edit permissions</a></li>
+        % endif
     </ul>
 </div>\
 </%def>\

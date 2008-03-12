@@ -8,7 +8,9 @@
 <p class="formsuccessful">Post deleted.</p>
 % endif
 
-% if fc.req.has_named_permission(group, u'moderate'):
+<% can_delete = fc.req.has_named_permission(group, u'moderate') %>\
+
+% if can_delete:
 <p><a href="${fc.url('forums.delete_thread', thread_id=thread.thread_id)}" class="confirm">Delete</a></p>
 % endif
 
@@ -16,7 +18,6 @@
 <p>No posts in this thread.</p>
 % else:
 ${render_paginator_in_box(paginator)}
-<% can_delete = fc.req.has_named_permission(group, u'moderate') %>\
 <table class="threadposts normal">
     <thead>
         <tr>

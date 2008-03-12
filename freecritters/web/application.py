@@ -10,7 +10,7 @@ from freecritters.model import Session, Login, Permission, User, Role, FormToken
                                SpecialGroupPermission, StandardGroupPermission
 from freecritters.web import templates
 from freecritters.web.exceptions import Redirect302, Error304, Error403, \
-                                        Error401RSS, Error404
+                                        Error401RSS, Error404, EarlyResponse
 from freecritters.web.urls import urls
 from freecritters.web.util import absolute_url, LazyProperty, http_date, \
                                   parse_http_date
@@ -127,6 +127,8 @@ class Request(BaseRequest):
             response = self.render_template('errors/401_rss.mako', mimetype='application/rss+xml')
             response.status_code = 401
             response.headers['WWW-Authenticate'] = 'Basic realm="' + self.config.site.name.encode('utf8') + '"'
+        except EarlyResponse, e:
+            response = e.response
         return response
     
     def has_permission(self, permission):

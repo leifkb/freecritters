@@ -45,24 +45,6 @@ class UserModifier(Modifier):
     def unmodify(self, value, form):
         return value.username
 
-class AppearanceModifier(Modifier):
-    """Turns an appearance ID into an appearance object."""
-    def __init__(self, message=u"That appearance doesn't exist."):
-        self.message = message
-    
-    def modify(self, value, form):
-        try:
-            value = int(value)
-        except ValueError:
-            raise ValidationError(self.message)
-        appearance = Appearance.query.get(value)
-        if appearance is None:
-            raise ValidationError(self.message)
-        return appearance
-    
-    def unmodify(self, value, form):
-        return unicode(value.appearance_id)
-
 class SubaccountModifier(Modifier):
     """Turns a subaccount name into a Subaccount object."""
     

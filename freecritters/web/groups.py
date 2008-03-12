@@ -2,12 +2,14 @@
 
 from freecritters.web.form import \
     Form, SelectMenu, TextField, TextArea, HiddenField, SubmitButton, \
-    LengthValidator, RegexValidator, SpecificValueValidator, NotBlankValidator
+    CheckBoxes, LengthValidator, RegexValidator, SpecificValueValidator, \
+    NotBlankValidator
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import eagerload
 from freecritters.model import Session, User, Group, GroupMember, GroupRole, \
                                MailConversation, MailParticipant, MailMessage, \
-                               Forum, SpecialGroupPermission
+                               Forum, SpecialGroupPermission, \
+                               StandardGroupPermission
 from freecritters.web.paginator import Paginator
 from freecritters.web.modifiers import \
     FormTokenField, GroupNameNotTakenValidator, GroupTypeCompatibilityValidator, \
@@ -15,6 +17,8 @@ from freecritters.web.modifiers import \
 from freecritters.web.globals import fc
 from freecritters.textformats import render_plain_text
 from freecritters.web.exceptions import Error403, Error404
+from freecritters.model.util import set_dynamic_relation
+from freecritters.web.util import confirm
 
 description_field = TextArea(
     u'description', u'Description',
@@ -32,7 +36,7 @@ create_group_form = Form(u'post', 'groups.create_group',
                                                 u'underscores. Can not '
                                                 u'start with a number.'),
                          GroupNameNotTakenValidator()]),
-    SelectMenu(u'type', u'Type', options=list((unicode(i), name) for i, name in enumerate(Group.type_names)),
+    SelectMenu(u'type', u'Type', options=list(enumerate(Group.type_names)),
                modifiers=[GroupTypeCompatibilityValidator()]),
     description_field,
     SubmitButton(title=u'Create', id_=u'createbtn'))
@@ -49,7 +53,7 @@ def create_group(req):
     
     results = create_group_form(req)
     if results.successful:
-        group = Group(int(results[u'type']), results[u'name'], results[u'description'], req.user)
+        group = Group(results[u'type'], results[u'name'], results[u'description'], req.user)
         Session.save(group)
         Session.flush()
         req.redirect('groups.group', group_id=group.group_id)
@@ -142,9 +146,6 @@ def group(req, group_id):
         is_member=is_member,
         join_form=join_results)
 
-leave_group_form = Form(u'post', None,
-    FormTokenField(),
-    SubmitButton(title=u'Yes, leave it', id_=u'submit'))
 
 def leave_group(req, group_id):
     group = Group.query.get(group_id)
@@ -153,21 +154,14 @@ def leave_group(req, group_id):
     req.check_group_permission(group, None)
     
     if req.user == group.owner:
-        return req.render_template('leave_group_form.mako',
-            group=group,
-            is_owner=True)
-        
-    results = leave_group_form(req)
-    results.action = 'groups.leave_group', dict(group_id=group.group_id)
-    if results.successful:
-        membership = req.user.find_group_membership(group)
-        Session.delete(membership)
-        req.redirect('groups', left=1)
-    else:
-        return req.render_template('leave_group_form.mako',
-            is_owner=False,
-            group=group,
-            form=results)
+        return req.render_template('cant_leave_group.mako',
+            group=group)
+    
+    confirm(u'leave this group')
+    
+    membership = req.user.find_group_membership(group)
+    Session.delete(membership)
+    req.redirect('groups', left=1)
 
 group_member_paginator = Paginator()
 
@@ -207,19 +201,19 @@ def edit_member(req, group_id, username):
     req.check_group_permission(group, u'edit_members')
     
     role_options = list(
-        (unicode(role.group_role_id), role.name)
+        (role, role.name)
         for role in group.roles.order_by(GroupRole.name)
     )
     
-    form = Form(u'post', ('groups.edit_member', dict(group_id=group.group_id, username=membership.user.username)),
+    form = Form(u'post', ('groups.edit_member', dict(group_id=group.group_id, username=membership.user.unformatted_username)),
         FormTokenField(),
         SelectMenu(u'role', u'Role', options=role_options),
         SubmitButton(title=u'Submit', id_=u'submitbtn'))
     
-    results = form(req, {u'role': unicode(membership.group_role.group_role_id)})
+    results = form(req, {u'role': membership.group_role})
     
     if results.successful:
-        membership.group_role = GroupRole.query.get(int(results[u'role']))
+        membership.group_role = results[u'role']
     
     return req.render_template('edit_group_member.mako',
         group=group,
@@ -358,9 +352,9 @@ def create_forum(req, group_id):
     permissions = group.special_permissions.order_by(
         desc(SpecialGroupPermission.special_group_permission_id)
     )
-    permission_options = [(u'', u'(No permission required)')]
+    permission_options = [(None, u'(No permission required)')]
     for permission in permissions:
-        permissions_options.append((unicode(permission.permission_id), permission.name))
+        permission_options.append((permission, permission.title))
     
     
     form = Form(u'post', ('groups.create_forum', dict(group_id=group.group_id)),
@@ -371,21 +365,196 @@ def create_forum(req, group_id):
         SelectMenu(u'create_thread_permission', u'Create thread permission', options=permission_options),
         SubmitButton(title=u'Create', id_=u'createbtn'))
     
-    results = form(req, {u'view_permission': u'',
-                         u'create_post_permission': u'',
-                         u'create_thread_permission': u''})
+    results = form(req)
     
     if results.successful:
         forum = Forum(results[u'name'], group)
-        if results[u'view_permission']:
-            forum.view_group_permission = SpecialGroupPermission.query.get(int(results[u'view_permission']))
-        if results[u'create_post_permission']:
-            forum.create_post_group_permission = SpecialGroupPermission.query.get(int(results[u'create_post_permission']))
-        if results[u'create_thread_permission']:
-            forum.create_thread_group_permission = SpecialGroupPermission.query.get(int(results[u'create_thread_permission']))
+        forum.view_group_permission = results[u'view_permission']
+        forum.create_post_group_permission = results[u'create_post_permission']
+        forum.create_thread_group_permission = results[u'create_thread_permission']
         Session.flush()
         req.redirect('forums.forum', forum_id=forum.forum_id)
     else:
         return req.render_template('create_group_forum.mako',
             group=group,
             form=results)
+
+def edit_roles(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, u'edit_roles')
+    
+    # Showing and sorting by the number of members with the role would be nice,
+    # but CountKeeperExtension isn't fancy enough to notice when the property
+    # changes, which GroupMember.role sometimes does.
+    roles = group.roles.order_by(GroupRole.name).all()
+    
+    return req.render_template('edit_group_roles.mako',
+        group=group,
+        roles=roles,
+        created='created' in req.args,
+        deleted='deleted' in req.args,
+        edited='edited' in req.args,
+        made_default='made_default' in req.args)
+
+def make_role_form(group, btntext):
+    # Unnecessary personal trivia: I'm coding this from my roof. It's sunny,
+    # and birds are chirping. This rules!
+    standard_permission_options = [
+        (permission, permission.title, permission.description)
+        for permission in StandardGroupPermission.query.order_by(StandardGroupPermission.title)
+    ]
+    special_permission_options = [
+        (permission, permission.title)
+        for permission in group.special_permissions.order_by(SpecialGroupPermission.title)
+    ]
+    return Form(u'post', None,
+        FormTokenField(),
+        TextField(u'name', u'Name', modifiers=[NotBlankValidator()]),
+        CheckBoxes(u'standard_permissions', u'Standard permissions',
+                   options=standard_permission_options),
+        CheckBoxes(u'special_permissions', u'Special permissions',
+                   options=special_permission_options),
+        SubmitButton(id_=u'submitbtn', title=btntext),
+        reliable_field=u'form_token')
+
+def create_role(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, u'edit_roles')
+    
+    results = make_role_form(group, u'Create')(req)
+    if results.successful:
+        role = GroupRole(group, results[u'name'])
+        for standard_permission in results[u'standard_permissions']:
+            role.standard_permissions.append(standard_permission)
+        for special_permission in results[u'special_permissions']:
+            role.special_permissions.append(special_permission)
+        req.redirect('groups.edit_roles', group_id=group_id, created=1)
+    else:
+        return req.render_template('create_group_role.mako',
+            group=group,
+            form=results)
+
+def edit_role(req, role_id):
+    role = GroupRole.query.get(role_id)
+    if role is None:
+        return None
+    group = role.group
+    req.check_group_permission(group, u'edit_roles')
+    
+    results = make_role_form(group, u'Edit')(req, {
+        u'name': role.name,
+        u'standard_permissions': role.standard_permissions,
+        u'special_permissions': role.special_permissions
+    })
+    if results.successful:
+        role.name = results[u'name']
+        role.standard_permissions = results[u'standard_permissions']
+        role.special_permissions = results[u'special_permissions']
+        req.redirect('groups.edit_roles', group_id=group.group_id, edited=1)
+    else:
+        return req.render_template('edit_group_role.mako',
+            group=group,
+            role=role,
+            form=results)
+
+def delete_role(req, role_id):
+    role = GroupRole.query.get(role_id)
+    if role is None:
+        return None
+    group = role.group
+    req.check_group_permission(group, u'edit_roles')
+    
+    if role.members[:1].count():
+        return req.render_template('cant_delete_group_role.mako',
+            group=group,
+            role=role)
+    
+    confirm(u'delete that role')
+    
+    Session.delete(role)
+    req.redirect('groups.edit_roles', group_id=group.group_id, deleted=1)
+
+def make_role_default(req, role_id):
+    role = GroupRole.query.get(role_id)
+    if role is None:
+        return None
+    group = role.group
+    req.check_group_permission(group, u'edit_roles')
+    
+    confirm(u'make that role the default')
+    
+    group.default_role = role
+    req.redirect('groups.edit_roles', group_id=group.group_id, made_default=1)
+
+# I'm not going to lie, Rails' scaffolding has its advantages
+
+def edit_special_permissions(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, u'edit_special_permissions')
+    
+    permissions = group.special_permissions.order_by(SpecialGroupPermission.title).all()
+    
+    return req.render_template('edit_special_permissions.mako',
+        group=group,
+        permissions=permissions,
+        created='created' in req.args,
+        edited='edited' in req.args,
+        deleted='deleted' in req.args)
+
+special_permission_form = Form(u'post', None, # Holy crap! I'm reusing something?!
+    FormTokenField(),
+    TextField(u'name', u'Name', modifiers=[NotBlankValidator()]),
+    SubmitButton(title=u'Create', id_=u'createbtn')
+)
+
+def create_special_permission(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, u'edit_special_permissions')
+    
+    results = special_permission_form(req)
+    results.action = 'groups.create_special_permission', dict(group_id=group.group_id)
+    if results.successful:
+        permission = SpecialGroupPermission(group, results[u'name'])
+        Session.save(permission)
+        req.redirect('groups.edit_special_permissions', group_id=group.group_id, created=1)
+    else:
+        return req.render_template('create_special_permission.mako',
+            group=group,
+            form=results)
+
+def edit_special_permission(req, permission_id):
+    permission = SpecialGroupPermission.query.get(permission_id)
+    if permission is None:
+        return None
+    group = permission.group
+    req.check_group_permission(group, u'edit_special_permissions')
+    
+    results = special_permission_form(req, {u'name': permission.title})
+    results.action = 'groups.edit_special_permission', dict(permission_id=permission.special_group_permission_id)
+    if results.successful:
+        permission.title = results[u'name']
+        req.redirect('groups.edit_special_permissions', group_id=group.group_id, edited=1)
+    else:
+        return req.render_template('edit_special_permission.mako',
+            group=group,
+            permission=permission,
+            form=results)
+
+def delete_special_permission(req, permission_id):
+    permission = SpecialGroupPermission.query.get(permission_id)
+    if permission is None:
+        return None
+    group = permission.group
+    req.check_group_permission(group, u'edit_special_permissions')
+    
+    confirm('delete this permission')
+    Session.delete(permission)
+    req.redirect('groups.edit_special_permissions', group_id=group.group_id, deleted=1)
