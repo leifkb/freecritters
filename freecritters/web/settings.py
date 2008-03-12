@@ -10,6 +10,7 @@ from freecritters.web.modifiers import FormTokenField, FormTokenValidator, HtmlM
 from freecritters.model import User, Subaccount, Permission, Session
 from freecritters.model.util import set_dynamic_relation
 from freecritters.web.exceptions import Error403
+from freecritters.web.util import confirm
 from operator import attrgetter
 
 edit_profile_form = Form(u'post', 'settings.edit_profile',

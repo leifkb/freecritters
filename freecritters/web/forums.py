@@ -6,6 +6,7 @@ from freecritters.web.form import Form, TextField, TextArea, SubmitButton, \
                                   LengthValidator, NotBlankValidator
 from freecritters.web.modifiers import FormTokenField, HtmlModifier
 from freecritters.web.exceptions import Error404
+from freecritters.web.util import confirm
 from sqlalchemy import desc, outerjoin
 from sqlalchemy.orm import eagerload
 
