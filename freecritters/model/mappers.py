@@ -119,7 +119,7 @@ mapper(GroupMember, group_members, properties={
 }, extension=CountKeeperExtension('group', 'member_count'))
 
 mapper(Forum, forums, properties={
-    'group': relation(Group, backref=backref('forums', lazy='dynamic', cascade='all', passive_deletes=True)),
+    'group': relation(Group, lazy=False, backref=backref('forums', lazy='dynamic', cascade='all', passive_deletes=True)),
     'view_permission': relation(Permission, primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),
     'view_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_view', primaryjoin=forums.c.view_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True)),
     'create_thread_permission': relation(Permission, primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),

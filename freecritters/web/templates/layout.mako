@@ -3,7 +3,7 @@
     <head>
         <title>${self.title()} on ${fc.config.site.name}</title>
         <link rel="stylesheet" media="screen,projection" type="text/css"
-              href="${fc.url('static', fn='style.css', n=0)}">
+              href="${fc.url('static', fn='style.css', n=1)}">
         <script src="${fc.url('urls.urls_js')}" type="text/javascript"></script>
         <script type="text/javascript">${fc.req.url_routing_js|n}</script>
         <script type="text/javascript">var form_token = \

@@ -56,6 +56,8 @@ urls = Map([
     Rule('/groups/<int:group_id>/create_forum', endpoint='groups.create_forum'),
     Rule('/forums/', endpoint='forums', defaults={'group_id': None}),
     Rule('/forums/<int:forum_id>/', endpoint='forums.forum'),
+    Rule('/forums/<int:forum_id>/edit', endpoint='forums.edit_forum'),
+    Rule('/forums/<int:forum_id>/delete', endpoint='forums.delete_forum'),
     Rule('/forums/<int:forum_id>/create_thread', endpoint='forums.create_thread'),
     Rule('/forums/threads/<int:thread_id>/', endpoint='forums.thread'),
     Rule('/forums/threads/<int:thread_id>/delete', endpoint='forums.delete_thread'),

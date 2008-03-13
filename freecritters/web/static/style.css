@@ -491,7 +491,7 @@ img {
 .forumnamecol {
     width: 100%;
 }
-.forumthreadcountcol {
+.forumthreadcountcol, .forumoptionscol {
     white-space: nowrap;
 }
 .navnewmail {

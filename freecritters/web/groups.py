@@ -339,12 +339,7 @@ def delete_group(req, group_id):
             group=group,
             form=results)
 
-def create_forum(req, group_id):
-    group = Group.query.get(group_id)
-    if group is None:
-        return None
-    req.check_group_permission(group, u'edit_forums')
-    
+def make_forum_form(group):
     permissions = group.special_permissions.order_by(
         desc(SpecialGroupPermission.special_group_permission_id)
     )
@@ -353,15 +348,21 @@ def create_forum(req, group_id):
         permission_options.append((permission, permission.title))
     
     
-    form = Form(u'post', ('groups.create_forum', dict(group_id=group.group_id)),
+    return Form(u'post', None,
         FormTokenField(),
         TextField(u'name', u'Name', modifiers=[NotBlankValidator()]),
         SelectMenu(u'view_permission', u'View permission', options=permission_options),
         SelectMenu(u'create_post_permission', u'Create post permission', options=permission_options),
         SelectMenu(u'create_thread_permission', u'Create thread permission', options=permission_options),
-        SubmitButton(title=u'Create', id_=u'createbtn'))
+        SubmitButton(title=u'Create', id_=u'createbtn')) 
+
+def create_forum(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, u'edit_forums')
     
-    results = form(req)
+    results = make_forum_form(group)(req)
     
     if results.successful:
         forum = Forum(results[u'name'], group)
@@ -374,6 +375,32 @@ def create_forum(req, group_id):
         return req.render_template('create_group_forum.mako',
             group=group,
             form=results)
+
+def edit_group_forum(req, forum):
+    # This isn't a real page; it's a function that gets called by
+    # forums.edit_forum when the forum to be edited is part of a group
+    group = forum.group
+    req.check_group_permission(group, u'edit_forums')
+    
+    defaults = {
+        u'name': forum.name,
+        u'view_permission': forum.view_group_permission,
+        u'create_post_permission': forum.create_post_group_permission,
+        u'create_thread_permission': forum.create_thread_group_permission
+    }
+    results = make_forum_form(group)(req, defaults)
+    if results.successful:
+        forum.name = results[u'name']
+        forum.view_group_permission = results[u'view_permission']
+        forum.create_post_group_permission = results[u'create_post_permission']
+        forum.create_thread_group_permission = results[u'create_thread_permission']
+        req.redirect('forums', group_id=group.group_id, edited=1)
+    else:
+        return req.render_template('edit_group_forum.mako',
+            group=group,
+            forum=forum,
+            form=results)
+    
 
 def edit_roles(req, group_id):
     group = Group.query.get(group_id)

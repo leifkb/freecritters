@@ -7,6 +7,7 @@ from freecritters.web.form import Form, TextField, TextArea, SubmitButton, \
 from freecritters.web.modifiers import FormTokenField, HtmlModifier
 from freecritters.web.exceptions import Error404
 from freecritters.web.util import confirm
+from freecritters.web.groups import edit_group_forum
 from sqlalchemy import desc, outerjoin
 from sqlalchemy.orm import eagerload
 
@@ -204,3 +205,27 @@ def create_thread(req, forum_id):
             group=forum.group,
             forum=forum,
             form=results)
+
+def edit_forum(req, forum_id):
+    forum = Forum.query.options(
+        eagerload('view_permission'),
+        eagerload('create_post_permission'),
+        eagerload('create_thread_permission'),
+        eagerload('view_group_permission'),
+        eagerload('create_post_group_permission'),
+        eagerload('create_thread_group_permission')
+    ).get(forum_id)
+    if forum is None:
+        return None
+    
+    if forum.group is None:
+        pass
+    else:
+        return edit_group_forum(req, forum)
+
+def delete_forum(req, forum_id):
+    forum = Forum.query.get(forum_id)
+    req.check_named_permission(forum.group, u'edit_forums')
+    confirm(u'delete that forum')
+    Session.delete(forum)
+    req.redirect('forums', group_id=forum.group and forum.group.group_id)
