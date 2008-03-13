@@ -1,6 +1,9 @@
 <%inherit file="${fc.is_member and 'group_layout.mako' or 'layout.mako'}" />\
 <%namespace file="form.mako" import="render_form"/>\
+<%namespace file="formsuccess.mako" import="formsuccess"/>\
 <%def name="title()">${group.type_name}: ${group.name}</%def>\
+
+${formsuccess(type_changed=u'Group type changed.')}
 
 <table class="labels">
     <tbody>

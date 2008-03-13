@@ -43,6 +43,7 @@ urls = Map([
     Rule('/groups/<int:group_id>/members/<username>/make_owner', endpoint='groups.change_owner'),
     Rule('/groups/<int:group_id>/edit', endpoint='groups.edit_group'),
     Rule('/groups/<int:group_id>/delete', endpoint='groups.delete_group'),
+    Rule('/groups/<int:group_id>/change_type', endpoint='groups.downgrade_group_type'),
     Rule('/groups/<int:group_id>/edit_roles', endpoint='groups.edit_roles'),
     Rule('/groups/<int:group_id>/create_role', endpoint='groups.create_role'),
     Rule('/groups/roles/<int:role_id>/edit', endpoint='groups.edit_role'),

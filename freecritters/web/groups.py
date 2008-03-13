@@ -339,6 +339,33 @@ def delete_group(req, group_id):
             group=group,
             form=results)
 
+def downgrade_group_type(req, group_id):
+    group = Group.query.get(group_id)
+    if group is None:
+        return None
+    req.check_group_permission(group, None)
+    if req.user != group.owner:
+        raise Error403()
+    
+    type_options = [
+        (type_code, Group.type_names[type_code])
+        for type_code in xrange(group.type-1, -1, -1)
+    ]
+    
+    form = Form(u'post', None,
+        FormTokenField(),
+        SelectMenu(u'type', u'New type', options=type_options),
+        SubmitButton(id_=u'submitbtn', title=u'Change'))
+    results = form(req)
+    
+    if results.successful:
+        group.type = results[u'type']
+        req.redirect('groups.group', group_id=group.group_id, type_changed=1)
+    else:
+        return req.render_template('downgrade_group_type.mako',
+            group=group,
+            form=results)
+
 def make_forum_form(group):
     permissions = group.special_permissions.order_by(
         desc(SpecialGroupPermission.special_group_permission_id)
