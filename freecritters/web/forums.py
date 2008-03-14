@@ -225,7 +225,21 @@ def edit_forum(req, forum_id):
 
 def delete_forum(req, forum_id):
     forum = Forum.query.get(forum_id)
+    if forum is None:
+        return None
     req.check_named_permission(forum.group, u'edit_forums')
     confirm(u'delete that forum')
     Session.delete(forum)
+    req.redirect('forums', group_id=forum.group and forum.group.group_id, deleted=1)
+
+def move_forum(req, forum_id, direction=u'up'):
+    forum = Forum.query.get(forum_id)
+    if forum is None:
+        return None
+    req.check_named_permission(forum.group, u'edit_forums')
+    confirm(u'move that forum')
+    if direction == u'up':
+        forum.move_up()
+    else:
+        forum.move_down()
     req.redirect('forums', group_id=forum.group and forum.group.group_id)

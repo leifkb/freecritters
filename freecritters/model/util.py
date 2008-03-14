@@ -43,11 +43,11 @@ class FieldCopierExtension(MapperExtension):
     def after_insert(self, mapper, connection, instance):
         clause = _primary_key_clause(mapper, instance)
         values = {}
-        for col1, cols in self.columns.iteritems():
+        for col1, col2 in self.columns.iteritems():
             if getattr(instance, col1) is None:
                 value = getattr(instance, col2)
                 setattr(instance, col1, value)
-                values[col1] = col2
+                values[col1] = value
         if values:
             connection.execute(mapper.mapped_table.update(clause, values=values))
         return EXT_CONTINUE

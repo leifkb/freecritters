@@ -6,7 +6,10 @@ ${group.name} \
 % endif
 Forums</%def>\
 
-${formsuccess(edited=u'Forum edited.')}
+${formsuccess(
+    edited=u'Forum edited.',
+    deleted=u'Forum deleted.'
+)}
 
 % if not forums:
 <p>No forums found.</p>
@@ -30,6 +33,8 @@ ${formsuccess(edited=u'Forum edited.')}
             % if fc.req.has_named_permission(group, u'edit_forums'):
             <td class="forumoptionscol">
                 <a href="${fc.url('forums.edit_forum', forum_id=forum.forum_id)}">(edit)</a>
+                <a href="${fc.url('forums.move_forum', forum_id=forum.forum_id, direction=u'up')}" class="confirm">(up)</a>
+                <a href="${fc.url('forums.move_forum', forum_id=forum.forum_id, direction=u'down')}" class="confirm">(down)</a>
                 <a href="${fc.url('forums.delete_forum', forum_id=forum.forum_id)}" class="confirm">(delete)</a>
             </td>
             % endif

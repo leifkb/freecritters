@@ -126,7 +126,7 @@ mapper(Forum, forums, properties={
     'create_thread_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_thread', primaryjoin=forums.c.create_thread_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True)),
     'create_post_permission': relation(Permission, primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_permission_id==permissions.c.permission_id, lazy='dynamic', passive_deletes=True)),
     'create_post_group_permission': relation(SpecialGroupPermission, primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, backref=backref('forums_create_post', primaryjoin=forums.c.create_post_special_group_permission_id==special_group_permissions.c.special_group_permission_id, lazy='dynamic', passive_deletes=True))
-}, extension=FieldCopierExtension(forum_id='order_num'))
+}, extension=FieldCopierExtension(order_num='forum_id'))
 
 mapper(Thread, threads, properties={
     'forum': relation(Forum, backref=backref('threads', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)),
