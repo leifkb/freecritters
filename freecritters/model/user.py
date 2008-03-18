@@ -2,7 +2,9 @@ from freecritters.model.util import PasswordHolder
 from freecritters.model.tables import users, mail_participants
 from freecritters.model import mailparticipant
 from freecritters.textformats import render_plain_text
-from sqlalchemy import and_
+from sqlalchemy import and_, desc, asc
+from sqlalchemy.orm import eagerload
+from freecritters.model.group import Group
 import re
 from datetime import datetime
 
@@ -81,3 +83,14 @@ class User(PasswordHolder):
     def max_group_type(self):
         from freecritters.model.group import Group
         return self.group_memberships.join('group').max(Group.type)
+    
+    @property
+    def group_list(self):
+        return [
+            membership.group
+            for membership in self.group_memberships.join('group').order_by([
+                desc(Group.owner_user_id==self.user_id),
+                desc(Group.type),
+                Group.unformatted_name
+            ]).options(eagerload('group'))
+        ]

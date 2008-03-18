@@ -63,18 +63,9 @@ def create_group(req):
 
 def groups(req):
     req.check_permission(u'groups')
-    
-    groups = [
-        membership.group
-        for membership in req.user.group_memberships.join('group').order_by([
-            desc(Group.owner_user_id==req.user.user_id),
-            desc(Group.type),
-            Group.unformatted_name
-        ]).options(eagerload('group'))
-    ]
-    
+
     return req.render_template('groups.mako',
-        groups=groups)
+        groups=req.user.group_list)
 
 orders = {
     u'members': desc(Group.member_count),

@@ -8,7 +8,7 @@ ${formsuccess(
 )}
 
 % if groups:
-<table class="normal" id="yourgroups">
+<table class="normal minigrouplist" id="yourgroups">
     <caption>Your groups</caption>
     <thead>
         <tr>

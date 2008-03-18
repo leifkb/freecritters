@@ -401,7 +401,7 @@ li > p:first-child {
 img {
     border: 0 none;
 }
-#yourgroups {
+.minigrouplist {
     float: right;
     width: 15em;
 }
@@ -414,7 +414,7 @@ img {
 .groupcreatedcol, .groupownercol {
     white-space: nowrap;
 }
-#yourgroups .groupnamecol {
+.minigrouplist .groupnamecol {
     width: 100%;
 }
 #groupmenu {
@@ -506,4 +506,18 @@ strong.very {
 }
 .checkboxes th {
     text-align: left;
+}
+.profilerandompet {
+    text-align: center;
+    float: right;
+}
+.profilerandompet h3 {
+    font-size: 1em;
+    margin: 0;
+    padding: 0;
+    margin-bottom: 0.25em;
+}
+.profilegrouplist {
+    clear: right;
+    margin-top: 1em;
 }
